@@ -1,6 +1,11 @@
 package com.example.testposturai
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -16,43 +21,109 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.io.FileInputStream
 import java.nio.channels.FileChannel
+import kotlin.math.roundToInt
 
-class MainActivity : AppCompatActivity() {
-
+class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var tflite: Interpreter
     private lateinit var txtResultat: TextView
+    private lateinit var txtAngle: TextView
     private var darreraAlerta: Long = 0
+
+    private lateinit var sensorManager: SensorManager
+    private var rotationSensor: Sensor? = null
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Disseny ràpid: càmera a dalt, text a baix
+        // Inicialitzem el SensorManager
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+
+        // Disseny: Angle a dalt, Càmera al mig, Resultat a baix
         val layout = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
         }
+
+        // Quadre de l'angle (A DALT)
+        txtAngle = TextView(this).apply {
+            textSize = 20f
+            setPadding(30, 100, 30, 20)
+            text = "Angle: --°"
+            gravity = android.view.Gravity.CENTER
+            setBackgroundColor(android.graphics.Color.LTGRAY)
+        }
+
         val viewFinder = androidx.camera.view.PreviewView(this)
+
         txtResultat = TextView(this).apply {
             textSize = 24f
             setPadding(50, 50, 50, 50)
             text = "Iniciant càmera..."
         }
+
+        layout.addView(txtAngle) // Afegim l'angle primer
         layout.addView(viewFinder, android.widget.LinearLayout.LayoutParams(matchParent, 0, 1f))
         layout.addView(txtResultat)
         setContentView(layout)
 
-        // 1. Carregar el model TFLite des de la carpeta Assets
+        // Carregar el model TFLite des de la carpeta Assets
         try {
             val modelFile = assets.openFd("tflite_learn_901615_40.tflite")
             val inputStream = FileInputStream(modelFile.fileDescriptor)
             val modelBuffer = inputStream.channel.map(FileChannel.MapMode.READ_ONLY, modelFile.startOffset, modelFile.declaredLength)
             tflite = Interpreter(modelBuffer)
-
             startCamera(viewFinder)
         } catch (e: Exception) {
             txtResultat.text = "Error carregant model: ${e.message}"
         }
     }
+
+    // --- GESTIÓ DE SENSORS PER L'ANGLE ---
+
+    override fun onResume() {
+        super.onResume()
+        rotationSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
+            val rotationMatrix = FloatArray(9)
+            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+
+            // Extraiem els components de la matriu per calcular l'angle d'inclinació total
+            // La gravetat en l'eix Z (rotationMatrix[8]) ens diu si la pantalla mira amunt o avall
+            // La gravetat en l'eix Y (rotationMatrix[7]) ens diu la inclinació longitudinal
+
+            val gravetatY = rotationMatrix[7]
+            val gravetatZ = rotationMatrix[8]
+
+            var angleRadiants = Math.atan2(gravetatY.toDouble(), gravetatZ.toDouble())
+
+            var graus = Math.toDegrees(angleRadiants).roundToInt()
+
+            if (graus < 0) {
+                graus += 360
+            }
+
+            txtAngle.text = "Angle real: ${graus}°"
+
+            if (graus < 60 || graus > 90) {
+                txtAngle.setTextColor(android.graphics.Color.RED)
+            } else {
+                txtAngle.setTextColor(android.graphics.Color.BLACK)
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun startCamera(viewFinder: androidx.camera.view.PreviewView) {
