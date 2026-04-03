@@ -32,6 +32,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var rotationSensor: Sensor? = null
 
+    private val handlerVibracio = android.os.Handler(android.os.Looper.getMainLooper())
+    private var vibrantActiu = false
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,6 +94,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(this)
+        gestionarAlertaVibracio(false)
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
@@ -117,13 +121,55 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             if (graus < 60 || graus > 90) {
                 txtAngle.setTextColor(android.graphics.Color.RED)
+                gestionarAlertaVibracio(true)
             } else {
                 txtAngle.setTextColor(android.graphics.Color.BLACK)
+                gestionarAlertaVibracio(false)
             }
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+    private val runnableVibracio = object : Runnable {
+        @RequiresApi(Build.VERSION_CODES.O)
+        override fun run() {
+            if (vibrantActiu) {
+                executarVibracioUnica()
+                handlerVibracio.postDelayed(this, 5000)
+            }
+        }
+    }
+
+    fun gestionarAlertaVibracio(activar: Boolean) {
+        if (activar && !vibrantActiu) {
+            vibrantActiu = true
+            handlerVibracio.post(runnableVibracio) // Inicia el cicle
+        } else if (!activar) {
+            vibrantActiu = false
+            handlerVibracio.removeCallbacks(runnableVibracio) // Atura el cicle
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun executarVibracioUnica() {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+
+        if (vibrator.hasVibrator()) {
+            android.util.Log.d("SENSORS", "Intentant vibració de compatibilitat...")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
+                val timings = longArrayOf(0, 500, 100, 500)
+                val amplitudes = intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE)
+                val efecte = VibrationEffect.createWaveform(timings, amplitudes, -1)
+                vibrator.vibrate(efecte)
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(500)
+            }
+        }
+    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun startCamera(viewFinder: androidx.camera.view.PreviewView) {
@@ -180,7 +226,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             if (probIncorrecte > probCorrecte) {
                 txtResultat.text = "POSTURA INCORRECTE ($probIncorrecte)"
                 txtResultat.setBackgroundColor(android.graphics.Color.RED)
-                ferVibrar()
             } else {
                 txtResultat.text = "POSTURA CORRECTE ($probCorrecte)"
                 txtResultat.setBackgroundColor(android.graphics.Color.GREEN)
@@ -189,15 +234,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         image.close()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun ferVibrar() {
-        val ara = System.currentTimeMillis()
-        if (ara - darreraAlerta > 2000) { // Només vibrar cada 2 segons
-            val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
-            vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
-            darreraAlerta = ara
-        }
-    }
 
     private val matchParent = android.view.ViewGroup.LayoutParams.MATCH_PARENT
 }
