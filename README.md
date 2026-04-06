@@ -49,5 +49,3 @@ Compilar i Executar:
 Connecta el dispositiu per USB i prem Run. Accepta els permisos de càmera quan se sol·licitin.
 
 5. Documentación de Machine Learning
-Tota la informació sobre l'entrenament del model, el dataset utilitzat a Edge Impulse i les mètriques de precisió es troba detallada al fitxer:
-   👉 [ml/ML_EXPERIMENTS.md](ml/ML_EXPERIMENTS.md)
