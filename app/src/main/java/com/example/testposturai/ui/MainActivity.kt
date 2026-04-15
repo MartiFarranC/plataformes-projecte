@@ -35,10 +35,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Configurar la interfície (UI)
         configurarUI()
 
-        // 2. Inicialitzar components modulars
         classifier = PoseClassifier(this, "tflite_learn_901615_40.tflite")
         vibrationManager = VibrationManager(this)
 
@@ -49,13 +47,27 @@ class MainActivity : AppCompatActivity() {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
-        // 3. Posar en marxa la càmera
         startCamera()
     }
 
     private fun configurarUI() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+        }
+
+        val btnBack = android.widget.Button(this).apply {
+            text = "← TORNAR"
+            textSize = 14f
+            setOnClickListener {
+                finish()
+            }
+        }
+        val paramsBotó = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = android.view.Gravity.START
+            setMargins(20, 40, 20, 20)
         }
 
         txtAngle = TextView(this).apply {
@@ -74,9 +86,11 @@ class MainActivity : AppCompatActivity() {
             text = "Analitzant postura..."
         }
 
+        layout.addView(btnBack, paramsBotó)
         layout.addView(txtAngle)
         layout.addView(viewFinder, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         layout.addView(txtResultat)
+
         setContentView(layout)
     }
 
@@ -84,10 +98,9 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             txtAngle.text = "Angle real: ${graus}°"
 
-            // Lògica de control segons Theme I-1
             if (graus < 60 || graus > 100) {
                 txtAngle.setTextColor(Color.RED)
-                vibrationManager.startAlert() // Cridem al manager modular
+                vibrationManager.startAlert()
             } else {
                 txtAngle.setTextColor(Color.BLACK)
                 vibrationManager.stopAlert()
@@ -108,7 +121,6 @@ class MainActivity : AppCompatActivity() {
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
 
-            // Connectem l'anàlisi d'imatge amb el nostre PoseClassifier
             imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this)) { imageProxy ->
                 val bitmap = imageProxy.toBitmap()
                 val (probCorrecte, probIncorrecte) = classifier.classify(bitmap)
