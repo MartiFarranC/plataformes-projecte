@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "524670431584",
+    "project_id": "posturai-226b3",
+    "storage_bucket": "posturai-226b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524670431584:android:3103e7bd1c5fa44e0dee05",
+        "android_client_info": {
+          "package_name": "com.example.testposturai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAERj-7yxGXed2cu356tdiAGL-NDY2pD3I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
