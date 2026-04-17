@@ -21,5 +21,5 @@ class AuthManager {
             }
     }
 
-    fun estaLoguejat(): Boolean = auth.currentUser != null
+    fun getEmail(): String? = auth.currentUser?.email
 }

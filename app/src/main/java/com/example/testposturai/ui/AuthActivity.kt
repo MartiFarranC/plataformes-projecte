@@ -40,8 +40,14 @@ class AuthActivity : AppCompatActivity() {
                 val pass = inputPass.text.toString().trim()
                 if (email.isNotEmpty() && pass.isNotEmpty()) {
                     authManager.login(email, pass) { ok, error ->
-                        if (ok) saltarAMenu()
-                        else Toast.makeText(this@AuthActivity, "Error: $error", Toast.LENGTH_SHORT).show()
+                        if (ok) {
+                            Toast.makeText(this@AuthActivity, "ok", Toast.LENGTH_SHORT).show()
+                            val intent = Intent(this@AuthActivity, StartActivity::class.java)
+                            startActivity(intent)
+                            finish()
+                        } else {
+                            Toast.makeText(this@AuthActivity, "Error: $error", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
@@ -54,8 +60,14 @@ class AuthActivity : AppCompatActivity() {
                 val pass = inputPass.text.toString().trim()
                 if (email.isNotEmpty() && pass.isNotEmpty()) {
                     authManager.registrar(email, pass) { ok, error ->
-                        if (ok) Toast.makeText(this@AuthActivity, "Registre OK", Toast.LENGTH_SHORT).show()
-                        else Toast.makeText(this@AuthActivity, "Error: $error", Toast.LENGTH_SHORT).show()
+                        if (ok) {
+                            Toast.makeText(this@AuthActivity, "Compte creat! Iniciant...", Toast.LENGTH_SHORT).show()
+                            val intent = Intent(this@AuthActivity, StartActivity::class.java)
+                            startActivity(intent)
+                            finish()
+                        } else {
+                            Toast.makeText(this@AuthActivity, "Error: $error", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
@@ -67,10 +79,5 @@ class AuthActivity : AppCompatActivity() {
         layout.addView(btnLogin)
         layout.addView(btnRegister)
         setContentView(layout)
-    }
-
-    private fun saltarAMenu() {
-        startActivity(Intent(this, StartActivity::class.java))
-        finish()
     }
 }
