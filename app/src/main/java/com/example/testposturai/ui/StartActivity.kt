@@ -3,6 +3,7 @@ package com.example.testposturai.ui
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -16,6 +17,7 @@ class StartActivity : AppCompatActivity() {
     private lateinit var txtNom: TextView
     private lateinit var btnStart: Button
     private lateinit var btnEditarUsuari: Button
+    private lateinit var btnLogout: Button
     private val authManager = AuthManager()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,50 +51,78 @@ class StartActivity : AppCompatActivity() {
                 startActivity(Intent(this@StartActivity, EditUserActivity::class.java))
             }
         }
+
+        btnLogout = Button(this).apply {
+            text = "TANCAR SESSIÓ"
+            textSize = 20f
+            setOnClickListener {
+                authManager.logout()
+                startActivity(Intent(this@StartActivity, AuthActivity::class.java))
+                finish()
+            }
+        }
         setContentView(layout)
     }
 
     override fun onStart() {
         super.onStart()
-        val user = FirebaseAuth.getInstance().currentUser ?: return
-        if (user == null) { // Si no user --> login
+        Log.d("StartActivity", "=== INICI ONSTART ===")
+
+        val auth = FirebaseAuth.getInstance()
+        var user = auth.currentUser
+
+        if (user == null) {
+            Log.d("StartActivity", "Status: Null user, redirigint a Auth")
             startActivity(Intent(this, AuthActivity::class.java))
             finish()
             return
         }
 
+        Log.d("StartActivity", "Usuari detectat: ${user.email}")
+
         val db = FirebaseFirestore.getInstance()
         db.collection("users").document(user.uid).get().addOnSuccessListener { document ->
-            val estaPendent = if (document.exists()) {
-                document.getBoolean("verificacioPendent") ?: false
-            } else {
-                false
-            }
+            val estaPendent = document.getBoolean("verificacioPendent") ?: false
+            Log.d("StartActivity", "Firestore: estaPendent = $estaPendent")
 
+            user!!.reload().addOnCompleteListener { task ->
+                val userActualitzat = auth.currentUser
+                val verificado = userActualitzat?.isEmailVerified ?: false
 
-            user.reload().addOnCompleteListener {
-                if (estaPendent && user.isEmailVerified) {
-                    db.collection("users").document(user.uid).update("verificacioPendent", false)
-                    mostrarInterficiePrincipal(user.email ?: "")
+                Log.d("FireBase", "Dada real del servidor -> isEmailVerified: $verificado")
+
+                if (estaPendent && verificado) {
+                    Log.d("StartActivity", "LOGIC: Verificació completada amb èxit!")
+
+                    db.collection("users").document(userActualitzat!!.uid).update("verificacioPendent", false)
+                        .addOnSuccessListener {
+                            Log.d("StartActivity", "DB: Variable 'verificacioPendent' posada a false")
+                            Toast.makeText(this@StartActivity, "Correu verificat!", Toast.LENGTH_LONG).show()
+
+                            auth.signOut()
+                            startActivity(Intent(this@StartActivity, AuthActivity::class.java))
+                            finish()
+                        }
                 } else if (estaPendent) {
+                    Log.d("StartActivity", "LOGIC: Segueix pendent, mostrant avís vermell")
                     mostrarAvisVerificacio()
                 } else {
-                    mostrarInterficiePrincipal(user.email ?: "")
+                    Log.d("StartActivity", "LOGIC: Tot correcte, entrant a l'app")
+                    mostrarInterficiePrincipal(userActualitzat?.email ?: "")
                 }
             }
         }
     }
 
     private fun mostrarAvisVerificacio() {
-        val prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE)
-        val emailPendent = prefs.getString("email_pendent", "el teu nou correu")
-
+        val user = FirebaseAuth.getInstance().currentUser
         layout.removeAllViews()
+
         val txtAvis = TextView(this).apply {
-            text = "⚠️ CONFIRMACIÓ PENDENT\n\nHem enviat un enllaç a:\n$emailPendent\n\nRevisa l'Spam!"
+            text = "⚠️ VERIFICACIÓ PENDENT\n\nRevisa el teu correu i clica l'enllaç per continuar."
             gravity = android.view.Gravity.CENTER
             textSize = 18f
-            setPadding(50, 50, 50, 50)
+            setPadding(50, 50, 50, 20)
             setTextColor(Color.RED)
         }
 
@@ -100,18 +130,33 @@ class StartActivity : AppCompatActivity() {
             text = "JA HE CLICAT L'ENLLAÇ"
             setOnClickListener {
                 onStart()
-                Toast.makeText(this@StartActivity, "Comprovant estat...", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        val btnReenviar = Button(this).apply {
+            text = "NO HE REBUT RES (REENVIAR)"
+            setBackgroundColor(Color.LTGRAY)
+            setOnClickListener {
+                user?.sendEmailVerification()?.addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        Toast.makeText(this@StartActivity, "Correu enviat de nou a ${user.email}", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this@StartActivity, "Error: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
 
         layout.addView(txtAvis)
         layout.addView(btnComprovar)
+        layout.addView(btnReenviar)
     }
 
     private fun mostrarInterficiePrincipal(email: String) {
         layout.removeAllViews()
         txtNom.text = "$email, benvingut!"
 
+        layout.addView(btnLogout)
         layout.addView(txtNom)
         layout.addView(btnStart)
         layout.addView(btnEditarUsuari)

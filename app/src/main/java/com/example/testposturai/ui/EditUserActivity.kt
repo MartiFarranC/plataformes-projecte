@@ -1,5 +1,6 @@
 package com.example.testposturai.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.*
@@ -10,56 +11,54 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 class EditUserActivity : AppCompatActivity() {
+
+    private lateinit var inputEmail: EditText
+    private lateinit var btnGuardar: Button
+    private lateinit var layout: LinearLayout
     private val authManager = AuthManager()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val layout = LinearLayout(this).apply {
+        layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(60, 60, 60, 60)
+            setPadding(50, 50, 50, 50)
         }
 
-        val title = TextView(this).apply {
-            text = "EDITAR PERFIL"
-            textSize = 20f
-            setPadding(0, 0, 0, 40)
+        inputEmail = EditText(this).apply {
+            hint = "Escriu el nou correu electrònic"
         }
 
-        val inputNouEmail = EditText(this).apply {
-            hint = "Nou correu"
-            setText(authManager.getEmail())
-        }
-
-        val btnGuardar = Button(this).apply {
+        btnGuardar = Button(this).apply {
             text = "GUARDAR CANVIS"
             setOnClickListener {
-                val emailAntic = authManager.getEmail()
-                val email = inputNouEmail.text.toString().trim()
-                android.util.Log.d("FireBase", "Intentant canviar a: '$email'")
-                if (email.isNotEmpty()) {
-                    authManager.actualitzarCorreu(email) { ok, error ->
-                        if (ok) {
-                            // 2. Si Auth diu OK, marquem a la base de dades que està pendent
-                            val userId = FirebaseAuth.getInstance().currentUser?.uid
-                            val db = FirebaseFirestore.getInstance()
-
-                            db.collection("users").document(userId!!).update("verificacioPendent", true).addOnSuccessListener {
-                                    finish() // Tornem a la StartActivity
-                            }
-
-                        } else {
-                            Toast.makeText(this@EditUserActivity, "Error: $error", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
+                val nouEmail = inputEmail.text.toString().trim()
+                guardarCanvis(nouEmail)
             }
         }
 
-        layout.addView(title)
-        layout.addView(inputNouEmail)
+        layout.addView(inputEmail)
         layout.addView(btnGuardar)
         setContentView(layout)
+    }
+
+    private fun guardarCanvis(nouEmail: String) {
+        val user = FirebaseAuth.getInstance().currentUser
+        val db = FirebaseFirestore.getInstance()
+
+        if (user != null && nouEmail.isNotEmpty()) {
+            db.collection("users").document(user.uid)
+                .update("verificacioPendent", true)
+                .addOnSuccessListener {
+                    authManager.actualitzarCorreu(nouEmail) { ok, error ->
+                        if (ok) {
+                            Toast.makeText(this, "Correu de verificació enviat!", Toast.LENGTH_SHORT).show()
+                            finish()
+                        } else {
+                            Toast.makeText(this, "Error: $error", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+        }
     }
 }

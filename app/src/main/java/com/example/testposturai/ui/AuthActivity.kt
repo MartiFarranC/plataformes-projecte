@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.example.testposturai.auth.AuthManager
+import com.google.firebase.auth.FirebaseAuth
 
 class AuthActivity : AppCompatActivity() {
     private val authManager = AuthManager()
@@ -59,14 +60,15 @@ class AuthActivity : AppCompatActivity() {
                 val email = inputEmail.text.toString().trim()
                 val pass = inputPass.text.toString().trim()
                 if (email.isNotEmpty() && pass.isNotEmpty()) {
-                    authManager.registrar(email, pass) { ok, error ->
+                    authManager.registrar(email, pass) { ok, missatge ->
                         if (ok) {
-                            Toast.makeText(this@AuthActivity, "Compte creat! Iniciant...", Toast.LENGTH_SHORT).show()
-                            val intent = Intent(this@AuthActivity, StartActivity::class.java)
-                            startActivity(intent)
-                            finish()
+                            Toast.makeText(this@AuthActivity, missatge, Toast.LENGTH_LONG).show()
+
+                            inputEmail.text.clear()
+                            inputPass.text.clear()
+
                         } else {
-                            Toast.makeText(this@AuthActivity, "Error: $error", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@AuthActivity, "Error: $missatge", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -79,5 +81,19 @@ class AuthActivity : AppCompatActivity() {
         layout.addView(btnLogin)
         layout.addView(btnRegister)
         setContentView(layout)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val user = FirebaseAuth.getInstance().currentUser
+
+        user?.reload()?.addOnCompleteListener {
+            if (user.isEmailVerified) {
+                Toast.makeText(this, "Correu verificat!", Toast.LENGTH_SHORT).show()
+            }else {
+                Toast.makeText(this, "Correu no verificat. Revisa la teva bústia!", Toast.LENGTH_SHORT).show()
+            }
+
+        }
     }
 }
