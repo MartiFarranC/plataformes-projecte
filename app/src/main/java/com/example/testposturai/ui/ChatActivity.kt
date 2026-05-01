@@ -1,6 +1,10 @@
 package com.example.testposturai.ui
 
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorManager
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -17,7 +21,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
-class ChatActivity : AppCompatActivity() {
+class ChatActivity : AppCompatActivity(), android.hardware.SensorEventListener {
 
     private val messages = mutableListOf<ChatMessage>()
     private lateinit var adapter: ChatAdapter
@@ -25,11 +29,18 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private val client = OkHttpClient()
 
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
+    private val llindarCop = 10.5f // Ajustar segons força
+
     // Configurat a app/build.gradle.kts -> CHAT_API_BASE_URL
     private val apiBaseUrl = BuildConfig.CHAT_API_BASE_URL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        sensorManager = getSystemService(android.content.Context.SENSOR_SERVICE) as android.hardware.SensorManager
+        accelerometer = sensorManager.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -75,6 +86,34 @@ class ChatActivity : AppCompatActivity() {
         setContentView(root)
     }
 
+    override fun onSensorChanged(event: android.hardware.SensorEvent) {
+        if (event.sensor.type == android.hardware.Sensor.TYPE_ACCELEROMETER) {
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+
+            // Magnitud vector: sqrt(x² + y² + z²)[cite: 3]
+            val magnitud = Math.sqrt((x*x + y*y + z*z).toDouble()).toFloat()
+
+            if (magnitud > llindarCop) {
+                Log.d("XAT_IA", "COP DETECTAT! Valor: $magnitud")
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
+
+    override fun onResume() {
+        super.onResume()
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
     private fun sendQuestion(question: String) {
         addMessage(ChatMessage(question, isUser = true))
 
