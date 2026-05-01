@@ -14,7 +14,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "CHAT_API_BASE_URL", "\"https://snazzy-lagged-repackage.ngrok-free.dev\"")
     }
+    
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
@@ -24,6 +26,9 @@ android {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         }
+    }
+    buildFeatures {
+        buildConfig = true
     }
 }
 
@@ -44,4 +49,6 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

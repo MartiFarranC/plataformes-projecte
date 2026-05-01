@@ -7,9 +7,23 @@
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+.idea/.name
+.idea/markdown.xml
+.vscode/
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+
+# Backend (Node.js)
+backend/node_modules/
+backend/.env
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+backend/pnpm-debug.log*

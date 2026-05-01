@@ -16,6 +16,7 @@ class StartActivity : AppCompatActivity() {
     private lateinit var layout: LinearLayout
     private lateinit var txtNom: TextView
     private lateinit var btnStart: Button
+    private lateinit var btnChatIa: Button
     private lateinit var btnEditarUsuari: Button
     private lateinit var btnLogout: Button
     private val authManager = AuthManager()
@@ -49,6 +50,14 @@ class StartActivity : AppCompatActivity() {
             textSize = 20f
             setOnClickListener {
                 startActivity(Intent(this@StartActivity, EditUserActivity::class.java))
+            }
+        }
+
+        btnChatIa = Button(this).apply {
+            text = "XAT"
+            textSize = 20f
+            setOnClickListener {
+                startActivity(Intent(this@StartActivity, ChatActivity::class.java))
             }
         }
 
@@ -159,6 +168,7 @@ class StartActivity : AppCompatActivity() {
         layout.addView(btnLogout)
         layout.addView(txtNom)
         layout.addView(btnStart)
+        layout.addView(btnChatIa)
         layout.addView(btnEditarUsuari)
     }
 }
