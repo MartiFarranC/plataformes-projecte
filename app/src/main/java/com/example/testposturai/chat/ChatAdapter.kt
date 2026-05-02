@@ -16,7 +16,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val container = LinearLayout(parent.context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 8, 16, 8)
+            setPadding(10, 8, 10, 8)
             layoutParams = RecyclerView.LayoutParams(
                 RecyclerView.LayoutParams.MATCH_PARENT,
                 RecyclerView.LayoutParams.WRAP_CONTENT
@@ -24,8 +24,8 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
         }
 
         val textView = TextView(parent.context).apply {
-            textSize = 16f
-            setPadding(24, 16, 24, 16)
+            textSize = 15f
+            setPadding(20, 14, 20, 14)
         }
 
         container.addView(textView)
@@ -41,13 +41,19 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
 
         if (message.isUser) {
             holder.container.gravity = Gravity.END
-            holder.textView.setBackgroundColor(Color.parseColor("#D6F7C1"))
-            holder.textView.setTextColor(Color.BLACK)
+            holder.textView.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 28f
+                setColor(Color.parseColor("#1F5EFF"))
+            }
+            holder.textView.setTextColor(Color.WHITE)
             params.gravity = Gravity.END
         } else {
             holder.container.gravity = Gravity.START
-            holder.textView.setBackgroundColor(Color.parseColor("#F0F0F0"))
-            holder.textView.setTextColor(Color.BLACK)
+            holder.textView.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 28f
+                setColor(Color.parseColor("#EEF2F8"))
+            }
+            holder.textView.setTextColor(Color.parseColor("#1C2434"))
             params.gravity = Gravity.START
         }
 

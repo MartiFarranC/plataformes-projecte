@@ -4,7 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.testposturai.auth.AuthManager
 import com.google.firebase.auth.FirebaseAuth
@@ -18,24 +22,38 @@ class AuthActivity : AppCompatActivity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(60, 60, 60, 60)
         }
+        UiKit.styleScreen(layout)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        UiKit.styleCard(card)
 
         val title = TextView(this).apply {
             text = "BENVINGUT"
-            textSize = 24f
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 50)
         }
+        UiKit.styleTitle(title)
+
+        val subtitle = TextView(this).apply {
+            text = "Inicia sessio per continuar"
+            gravity = Gravity.CENTER
+            setPadding(0, UiKit.dp(this@AuthActivity, 8), 0, UiKit.dp(this@AuthActivity, 20))
+        }
+        UiKit.styleSubtitle(subtitle)
 
         val inputEmail = EditText(this).apply { hint = "Email" }
+        UiKit.styleInput(inputEmail)
+
         val inputPass = EditText(this).apply {
             hint = "Contrasenya"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
+        UiKit.styleInput(inputPass)
 
         val btnLogin = Button(this).apply {
-            text = "INICIAR SESSIÓ"
+            text = "Iniciar sessio"
             setOnClickListener {
                 val email = inputEmail.text.toString().trim()
                 val pass = inputPass.text.toString().trim()
@@ -43,8 +61,7 @@ class AuthActivity : AppCompatActivity() {
                     authManager.login(email, pass) { ok, error ->
                         if (ok) {
                             Toast.makeText(this@AuthActivity, "ok", Toast.LENGTH_SHORT).show()
-                            val intent = Intent(this@AuthActivity, StartActivity::class.java)
-                            startActivity(intent)
+                            startActivity(Intent(this@AuthActivity, StartActivity::class.java))
                             finish()
                         } else {
                             Toast.makeText(this@AuthActivity, "Error: $error", Toast.LENGTH_SHORT).show()
@@ -53,9 +70,10 @@ class AuthActivity : AppCompatActivity() {
                 }
             }
         }
+        UiKit.stylePrimaryButton(btnLogin)
 
         val btnRegister = Button(this).apply {
-            text = "CREAR COMPTE NOU"
+            text = "Crear compte nou"
             setOnClickListener {
                 val email = inputEmail.text.toString().trim()
                 val pass = inputPass.text.toString().trim()
@@ -63,10 +81,8 @@ class AuthActivity : AppCompatActivity() {
                     authManager.registrar(email, pass) { ok, missatge ->
                         if (ok) {
                             Toast.makeText(this@AuthActivity, missatge, Toast.LENGTH_LONG).show()
-
                             inputEmail.text.clear()
                             inputPass.text.clear()
-
                         } else {
                             Toast.makeText(this@AuthActivity, "Error: $missatge", Toast.LENGTH_SHORT).show()
                         }
@@ -74,12 +90,27 @@ class AuthActivity : AppCompatActivity() {
                 }
             }
         }
+        UiKit.styleSecondaryButton(btnRegister)
 
-        layout.addView(title)
-        layout.addView(inputEmail)
-        layout.addView(inputPass)
-        layout.addView(btnLogin)
-        layout.addView(btnRegister)
+        val space = UiKit.dp(this, 12)
+        card.addView(title)
+        card.addView(subtitle)
+        card.addView(inputEmail)
+        (inputEmail.layoutParams as LinearLayout.LayoutParams).bottomMargin = space
+        card.addView(inputPass)
+        (inputPass.layoutParams as LinearLayout.LayoutParams).bottomMargin = UiKit.dp(this, 16)
+        card.addView(btnLogin)
+        (btnLogin.layoutParams as LinearLayout.LayoutParams).bottomMargin = space
+        card.addView(btnRegister)
+
+        layout.addView(
+            card,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
         setContentView(layout)
     }
 
@@ -93,7 +124,6 @@ class AuthActivity : AppCompatActivity() {
             }else {
                 Toast.makeText(this, "Correu no verificat. Revisa la teva bústia!", Toast.LENGTH_SHORT).show()
             }
-
         }
     }
 }

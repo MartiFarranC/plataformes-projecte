@@ -1,9 +1,11 @@
 package com.example.testposturai.ui
 
 import android.os.Bundle
+import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -25,34 +27,48 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private val client = OkHttpClient()
 
-    // Configurat a app/build.gradle.kts -> CHAT_API_BASE_URL
     private val apiBaseUrl = BuildConfig.CHAT_API_BASE_URL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(20, 20, 20, 20)
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        UiKit.styleScreen(root)
+
+        val topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
 
         val btnBack = Button(this).apply {
-            text = "TORNAR"
+            text = "Tornar"
             setOnClickListener { finish() }
         }
+        UiKit.styleSecondaryButton(btnBack)
+
+        val title = TextView(this).apply {
+            text = "Assistent de postura"
+            setPadding(UiKit.dp(this@ChatActivity, 12), 0, 0, 0)
+        }
+        UiKit.styleTitle(title)
+        title.textSize = 20f
+
+        topBar.addView(btnBack, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.35f))
+        topBar.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.65f))
 
         recyclerView = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@ChatActivity)
+            background = UiKit.roundedDrawable(UiKit.colorSurface, UiKit.colorBorder, 1, 16f)
+            setPadding(UiKit.dp(this@ChatActivity, 8), UiKit.dp(this@ChatActivity, 8), UiKit.dp(this@ChatActivity, 8), UiKit.dp(this@ChatActivity, 8))
         }
         adapter = ChatAdapter(messages)
         recyclerView.adapter = adapter
 
-        input = EditText(this).apply {
-            hint = "Escriu una pregunta..."
-        }
+        input = EditText(this).apply { hint = "Escriu una pregunta..." }
+        UiKit.styleInput(input)
 
         val btnSend = Button(this).apply {
-            text = "ENVIAR"
+            text = "Enviar"
             setOnClickListener {
                 val question = input.text.toString().trim()
                 if (question.isNotEmpty()) {
@@ -61,16 +77,20 @@ class ChatActivity : AppCompatActivity() {
                 }
             }
         }
+        UiKit.stylePrimaryButton(btnSend)
 
         val inputRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(btnSend)
+            (btnSend.layoutParams as LinearLayout.LayoutParams).marginStart = UiKit.dp(this@ChatActivity, 10)
         }
 
-        root.addView(btnBack)
+        root.addView(topBar)
         root.addView(recyclerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        (recyclerView.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 14)
         root.addView(inputRow)
+        (inputRow.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 12)
 
         setContentView(root)
     }
@@ -91,9 +111,7 @@ class ChatActivity : AppCompatActivity() {
             try {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
-                        runOnUiThread {
-                            addMessage(ChatMessage("Error backend: ${response.code}", isUser = false))
-                        }
+                        runOnUiThread { addMessage(ChatMessage("Error backend: ${response.code}", isUser = false)) }
                         return@use
                     }
 
@@ -101,9 +119,7 @@ class ChatActivity : AppCompatActivity() {
                     val json = JSONObject(body)
                     val answer = json.optString("answer", "Sense resposta")
 
-                    runOnUiThread {
-                        addMessage(ChatMessage(answer, isUser = false))
-                    }
+                    runOnUiThread { addMessage(ChatMessage(answer, isUser = false)) }
                 }
             } catch (e: Exception) {
                 runOnUiThread {

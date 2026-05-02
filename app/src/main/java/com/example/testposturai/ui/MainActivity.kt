@@ -6,11 +6,15 @@ import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -20,13 +24,11 @@ import com.example.testposturai.sensors.VibrationManager
 
 class MainActivity : AppCompatActivity() {
 
-    // Instàncies de les nostres classes modulars
     private lateinit var classifier: PoseClassifier
     private lateinit var vibrationManager: VibrationManager
     private lateinit var angleProvider: AngleProvider
     private lateinit var sensorManager: SensorManager
 
-    // Elements de la UI
     private lateinit var txtResultat: TextView
     private lateinit var txtAngle: TextView
     private lateinit var viewFinder: PreviewView
@@ -40,69 +42,79 @@ class MainActivity : AppCompatActivity() {
         classifier = PoseClassifier(this, "tflite_learn_901615_40.tflite")
         vibrationManager = VibrationManager(this)
 
-        // Inicialitzem l'AngleProvider amb una "callback" (el que ha de fer quan l'angle canviï)
-        angleProvider = AngleProvider { graus ->
-            actualitzarEstatPerAngle(graus)
-        }
-
+        angleProvider = AngleProvider { graus -> actualitzarEstatPerAngle(graus) }
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
         startCamera()
     }
 
     private fun configurarUI() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        UiKit.styleScreen(layout)
+
+        val topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
 
-        val btnBack = android.widget.Button(this).apply {
-            text = "← TORNAR"
-            textSize = 14f
-            setOnClickListener {
-                finish()
-            }
+        val btnBack = Button(this).apply {
+            text = "Tornar"
+            setOnClickListener { finish() }
         }
-        val paramsBotó = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = android.view.Gravity.START
-            setMargins(20, 40, 20, 20)
+        UiKit.styleSecondaryButton(btnBack)
+
+        val title = TextView(this).apply {
+            text = "Analisi postural"
+            setPadding(UiKit.dp(this@MainActivity, 12), 0, 0, 0)
         }
+        UiKit.styleTitle(title)
+        title.textSize = 20f
+
+        topBar.addView(btnBack, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.35f))
+        topBar.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.65f))
+
+        val statsCard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        UiKit.styleCard(statsCard)
 
         txtAngle = TextView(this).apply {
-            textSize = 20f
-            setPadding(30, 100, 30, 20)
-            text = "Angle: --°"
-            gravity = android.view.Gravity.CENTER
-            setBackgroundColor(Color.LTGRAY)
+            text = "Angle: --"
+            textSize = 17f
+            setTextColor(UiKit.colorPrimaryText)
         }
-
-        viewFinder = PreviewView(this)
 
         txtResultat = TextView(this).apply {
-            textSize = 24f
-            setPadding(50, 50, 50, 50)
             text = "Analitzant postura..."
+            textSize = 18f
+            setPadding(0, UiKit.dp(this@MainActivity, 10), 0, 0)
+            setTextColor(UiKit.colorSecondaryText)
         }
 
-        layout.addView(btnBack, paramsBotó)
-        layout.addView(txtAngle)
+        statsCard.addView(txtAngle)
+        statsCard.addView(txtResultat)
+
+        viewFinder = PreviewView(this).apply {
+            background = UiKit.roundedDrawable(Color.WHITE, UiKit.colorBorder, 1, 16f)
+            elevation = UiKit.dp(this@MainActivity, 2).toFloat()
+        }
+
+        layout.addView(topBar)
+        layout.addView(statsCard)
+        (statsCard.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 14)
         layout.addView(viewFinder, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        layout.addView(txtResultat)
+        (viewFinder.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 14)
 
         setContentView(layout)
     }
 
     private fun actualitzarEstatPerAngle(graus: Int) {
         runOnUiThread {
-            txtAngle.text = "Angle real: ${graus}°"
+            txtAngle.text = "Angle real: ${graus}"
 
             if (graus < 60 || graus > 100) {
-                txtAngle.setTextColor(Color.RED)
+                txtAngle.setTextColor(UiKit.colorDanger)
                 vibrationManager.startAlert()
             } else {
-                txtAngle.setTextColor(Color.BLACK)
+                txtAngle.setTextColor(UiKit.colorSuccess)
                 vibrationManager.stopAlert()
             }
         }
@@ -127,11 +139,11 @@ class MainActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (probIncorrecte > probCorrecte) {
-                        txtResultat.text = "POSTURA INCORRECTE ($probIncorrecte)"
-                        txtResultat.setBackgroundColor(Color.RED)
+                        txtResultat.text = "Postura incorrecta (${probIncorrecte})"
+                        txtResultat.setTextColor(UiKit.colorDanger)
                     } else {
-                        txtResultat.text = "POSTURA CORRECTE ($probCorrecte)"
-                        txtResultat.setBackgroundColor(Color.GREEN)
+                        txtResultat.text = "Postura correcta (${probCorrecte})"
+                        txtResultat.setTextColor(UiKit.colorSuccess)
                     }
                 }
                 imageProxy.close()
@@ -150,6 +162,6 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(angleProvider)
-        vibrationManager.stopAlert() // Seguretat: aturar vibració si sortim de l'app
+        vibrationManager.stopAlert()
     }
 }

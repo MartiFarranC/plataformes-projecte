@@ -1,9 +1,9 @@
 package com.example.testposturai.ui
 
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.testposturai.auth.AuthManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+
 class StartActivity : AppCompatActivity() {
     private lateinit var layout: LinearLayout
     private lateinit var txtNom: TextView
@@ -26,50 +27,45 @@ class StartActivity : AppCompatActivity() {
 
         layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = android.view.Gravity.CENTER
-            setPadding(50, 50, 50, 50)
+            gravity = Gravity.CENTER
         }
+        UiKit.styleScreen(layout)
 
         txtNom = TextView(this).apply {
-            textSize = 20f
-            setPadding(30, 100, 30, 20)
-            gravity = android.view.Gravity.CENTER
-            setBackgroundColor(Color.LTGRAY)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setPadding(0, UiKit.dp(this@StartActivity, 8), 0, UiKit.dp(this@StartActivity, 20))
+            setTextColor(UiKit.colorSecondaryText)
         }
 
         btnStart = Button(this).apply {
-            text = "COMENÇAR ANÀLISI POSTURAL"
-            textSize = 20f
-            setOnClickListener {
-                startActivity(Intent(this@StartActivity, MainActivity::class.java))
-            }
+            text = "Comencar analisi postural"
+            setOnClickListener { startActivity(Intent(this@StartActivity, MainActivity::class.java)) }
         }
+        UiKit.stylePrimaryButton(btnStart)
 
         btnEditarUsuari = Button(this).apply {
-            text = "EDITAR EL MEU PERFIL"
-            textSize = 20f
-            setOnClickListener {
-                startActivity(Intent(this@StartActivity, EditUserActivity::class.java))
-            }
+            text = "Editar el meu perfil"
+            setOnClickListener { startActivity(Intent(this@StartActivity, EditUserActivity::class.java)) }
         }
+        UiKit.styleSecondaryButton(btnEditarUsuari)
 
         btnChatIa = Button(this).apply {
-            text = "XAT"
-            textSize = 20f
-            setOnClickListener {
-                startActivity(Intent(this@StartActivity, ChatActivity::class.java))
-            }
+            text = "Xat IA"
+            setOnClickListener { startActivity(Intent(this@StartActivity, ChatActivity::class.java)) }
         }
+        UiKit.styleSecondaryButton(btnChatIa)
 
         btnLogout = Button(this).apply {
-            text = "TANCAR SESSIÓ"
-            textSize = 20f
+            text = "Tancar sessio"
             setOnClickListener {
                 authManager.logout()
                 startActivity(Intent(this@StartActivity, AuthActivity::class.java))
                 finish()
             }
         }
+        UiKit.styleSecondaryButton(btnLogout)
+
         setContentView(layout)
     }
 
@@ -78,45 +74,33 @@ class StartActivity : AppCompatActivity() {
         Log.d("StartActivity", "=== INICI ONSTART ===")
 
         val auth = FirebaseAuth.getInstance()
-        var user = auth.currentUser
+        val user = auth.currentUser
 
         if (user == null) {
-            Log.d("StartActivity", "Status: Null user, redirigint a Auth")
             startActivity(Intent(this, AuthActivity::class.java))
             finish()
             return
         }
 
-        Log.d("StartActivity", "Usuari detectat: ${user.email}")
-
         val db = FirebaseFirestore.getInstance()
         db.collection("users").document(user.uid).get().addOnSuccessListener { document ->
             val estaPendent = document.getBoolean("verificacioPendent") ?: false
-            Log.d("StartActivity", "Firestore: estaPendent = $estaPendent")
 
-            user!!.reload().addOnCompleteListener { task ->
+            user.reload().addOnCompleteListener {
                 val userActualitzat = auth.currentUser
-                val verificado = userActualitzat?.isEmailVerified ?: false
+                val verificat = userActualitzat?.isEmailVerified ?: false
 
-                Log.d("FireBase", "Dada real del servidor -> isEmailVerified: $verificado")
-
-                if (estaPendent && verificado) {
-                    Log.d("StartActivity", "LOGIC: Verificació completada amb èxit!")
-
-                    db.collection("users").document(userActualitzat!!.uid).update("verificacioPendent", false)
+                if (estaPendent && verificat) {
+                    db.collection("users").document(user.uid).update("verificacioPendent", false)
                         .addOnSuccessListener {
-                            Log.d("StartActivity", "DB: Variable 'verificacioPendent' posada a false")
                             Toast.makeText(this@StartActivity, "Correu verificat!", Toast.LENGTH_LONG).show()
-
                             auth.signOut()
                             startActivity(Intent(this@StartActivity, AuthActivity::class.java))
                             finish()
                         }
                 } else if (estaPendent) {
-                    Log.d("StartActivity", "LOGIC: Segueix pendent, mostrant avís vermell")
                     mostrarAvisVerificacio()
                 } else {
-                    Log.d("StartActivity", "LOGIC: Tot correcte, entrant a l'app")
                     mostrarInterficiePrincipal(userActualitzat?.email ?: "")
                 }
             }
@@ -127,48 +111,72 @@ class StartActivity : AppCompatActivity() {
         val user = FirebaseAuth.getInstance().currentUser
         layout.removeAllViews()
 
+        val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        UiKit.styleCard(card)
+
         val txtAvis = TextView(this).apply {
-            text = "⚠️ VERIFICACIÓ PENDENT\n\nRevisa el teu correu i clica l'enllaç per continuar."
-            gravity = android.view.Gravity.CENTER
-            textSize = 18f
-            setPadding(50, 50, 50, 20)
-            setTextColor(Color.RED)
+            text = "Verificacio pendent\n\nRevisa el correu i clica l'enllac per continuar."
+            gravity = Gravity.CENTER
         }
+        UiKit.styleTitle(txtAvis)
+        txtAvis.textSize = 20f
+        txtAvis.setTextColor(UiKit.colorDanger)
 
         val btnComprovar = Button(this).apply {
-            text = "JA HE CLICAT L'ENLLAÇ"
-            setOnClickListener {
-                onStart()
-            }
+            text = "Ja he clicat l'enllac"
+            setOnClickListener { onStart() }
         }
+        UiKit.stylePrimaryButton(btnComprovar)
 
         val btnReenviar = Button(this).apply {
-            text = "NO HE REBUT RES (REENVIAR)"
-            setBackgroundColor(Color.LTGRAY)
+            text = "Reenviar correu"
             setOnClickListener {
                 user?.sendEmailVerification()?.addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        Toast.makeText(this@StartActivity, "Correu enviat de nou a ${user.email}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@StartActivity, "Correu reenviat a ${user.email}", Toast.LENGTH_LONG).show()
                     } else {
                         Toast.makeText(this@StartActivity, "Error: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                     }
                 }
             }
         }
+        UiKit.styleSecondaryButton(btnReenviar)
 
-        layout.addView(txtAvis)
-        layout.addView(btnComprovar)
-        layout.addView(btnReenviar)
+        card.addView(txtAvis)
+        card.addView(btnComprovar)
+        (btnComprovar.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 18)
+        card.addView(btnReenviar)
+        (btnReenviar.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 10)
+
+        layout.addView(card)
     }
 
     private fun mostrarInterficiePrincipal(email: String) {
         layout.removeAllViews()
-        txtNom.text = "$email, benvingut!"
 
-        layout.addView(btnLogout)
-        layout.addView(txtNom)
-        layout.addView(btnStart)
-        layout.addView(btnChatIa)
-        layout.addView(btnEditarUsuari)
+        val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        UiKit.styleCard(card)
+
+        val title = TextView(this).apply {
+            text = "Panell principal"
+            gravity = Gravity.CENTER
+        }
+        UiKit.styleTitle(title)
+
+        txtNom.text = "$email, benvingut"
+        txtNom.gravity = Gravity.CENTER
+
+        card.addView(title)
+        card.addView(txtNom)
+        card.addView(btnStart)
+        (btnStart.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 8)
+        card.addView(btnChatIa)
+        (btnChatIa.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 10)
+        card.addView(btnEditarUsuari)
+        (btnEditarUsuari.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 10)
+        card.addView(btnLogout)
+        (btnLogout.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 18)
+
+        layout.addView(card)
     }
 }
