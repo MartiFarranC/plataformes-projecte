@@ -4,6 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -167,16 +169,21 @@ class StartActivity : AppCompatActivity() {
         txtNom.gravity = Gravity.CENTER
 
         card.addView(title)
-        card.addView(txtNom)
-        card.addView(btnStart)
+        addSafely(card, txtNom)
+        addSafely(card, btnStart)
         (btnStart.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 8)
-        card.addView(btnChatIa)
+        addSafely(card, btnChatIa)
         (btnChatIa.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 10)
-        card.addView(btnEditarUsuari)
+        addSafely(card, btnEditarUsuari)
         (btnEditarUsuari.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 10)
-        card.addView(btnLogout)
+        addSafely(card, btnLogout)
         (btnLogout.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 18)
 
         layout.addView(card)
+    }
+
+    private fun addSafely(parent: LinearLayout, child: View) {
+        (child.parent as? ViewGroup)?.removeView(child)
+        parent.addView(child)
     }
 }

@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var txtResultat: TextView
     private lateinit var txtAngle: TextView
     private lateinit var viewFinder: PreviewView
+    private var cameraProvider: ProcessCameraProvider? = null
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,7 +60,7 @@ class MainActivity : AppCompatActivity() {
 
         val btnBack = Button(this).apply {
             text = "Tornar"
-            setOnClickListener { finish() }
+            setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         }
         UiKit.styleSecondaryButton(btnBack)
 
@@ -124,7 +125,8 @@ class MainActivity : AppCompatActivity() {
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
+            cameraProvider = cameraProviderFuture.get()
+            val provider = cameraProvider ?: return@addListener
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(viewFinder.surfaceProvider)
             }
@@ -149,7 +151,11 @@ class MainActivity : AppCompatActivity() {
                 imageProxy.close()
             }
 
-            cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis)
+            try {
+                provider.unbindAll()
+                provider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis)
+            } catch (_: Exception) {
+            }
         }, ContextCompat.getMainExecutor(this))
     }
 
@@ -163,5 +169,10 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         sensorManager.unregisterListener(angleProvider)
         vibrationManager.stopAlert()
+    }
+
+    override fun onDestroy() {
+        cameraProvider?.unbindAll()
+        super.onDestroy()
     }
 }

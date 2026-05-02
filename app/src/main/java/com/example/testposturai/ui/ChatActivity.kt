@@ -26,6 +26,8 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var input: EditText
     private val client = OkHttpClient()
+    @Volatile
+    private var isClosed = false
 
     private val apiBaseUrl = BuildConfig.CHAT_API_BASE_URL
 
@@ -42,7 +44,7 @@ class ChatActivity : AppCompatActivity() {
 
         val btnBack = Button(this).apply {
             text = "Tornar"
-            setOnClickListener { finish() }
+            setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         }
         UiKit.styleSecondaryButton(btnBack)
 
@@ -110,8 +112,11 @@ class ChatActivity : AppCompatActivity() {
         Thread {
             try {
                 client.newCall(request).execute().use { response ->
+                    if (isClosed) return@use
                     if (!response.isSuccessful) {
-                        runOnUiThread { addMessage(ChatMessage("Error backend: ${response.code}", isUser = false)) }
+                        runOnUiThread {
+                            if (!isClosed) addMessage(ChatMessage("Error backend: ${response.code}", isUser = false))
+                        }
                         return@use
                     }
 
@@ -119,12 +124,16 @@ class ChatActivity : AppCompatActivity() {
                     val json = JSONObject(body)
                     val answer = json.optString("answer", "Sense resposta")
 
-                    runOnUiThread { addMessage(ChatMessage(answer, isUser = false)) }
+                    runOnUiThread {
+                        if (!isClosed) addMessage(ChatMessage(answer, isUser = false))
+                    }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    Toast.makeText(this, "Error de connexio: ${e.message}", Toast.LENGTH_LONG).show()
-                    addMessage(ChatMessage("No he pogut connectar amb la IA.", isUser = false))
+                    if (!isClosed) {
+                        Toast.makeText(applicationContext, "Error de connexio: ${e.message}", Toast.LENGTH_LONG).show()
+                        addMessage(ChatMessage("No he pogut connectar amb la IA.", isUser = false))
+                    }
                 }
             }
         }.start()
@@ -134,5 +143,10 @@ class ChatActivity : AppCompatActivity() {
         messages.add(message)
         adapter.notifyItemInserted(messages.size - 1)
         recyclerView.scrollToPosition(messages.size - 1)
+    }
+
+    override fun onDestroy() {
+        isClosed = true
+        super.onDestroy()
     }
 }
