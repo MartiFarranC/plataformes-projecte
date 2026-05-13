@@ -18,6 +18,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class ChatActivity : AppCompatActivity() {
 
@@ -25,7 +26,12 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var adapter: ChatAdapter
     private lateinit var recyclerView: RecyclerView
     private lateinit var input: EditText
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
+        .callTimeout(130, TimeUnit.SECONDS)
+        .build()
     @Volatile
     private var isClosed = false
 
@@ -113,9 +119,36 @@ class ChatActivity : AppCompatActivity() {
             try {
                 client.newCall(request).execute().use { response ->
                     if (isClosed) return@use
-                    if (!response.isSuccessful) {
+                    val backendSignature = response.header("X-PosturAI-Backend", "")
+                    if (backendSignature != "true") {
                         runOnUiThread {
-                            if (!isClosed) addMessage(ChatMessage("Error backend: ${response.code}", isUser = false))
+                            if (!isClosed) {
+                                addMessage(
+                                    ChatMessage(
+                                        "Error de configuració: el xat està connectat a un backend incorrecte. Revisa la URL d'ngrok.",
+                                        isUser = false
+                                    )
+                                )
+                            }
+                        }
+                        return@use
+                    }
+                    if (!response.isSuccessful) {
+                        val errorBody = response.body?.string().orEmpty()
+                        val backendMessage = try {
+                            JSONObject(errorBody).optString("error", "")
+                        } catch (_: Exception) {
+                            ""
+                        }
+                        runOnUiThread {
+                            if (!isClosed) {
+                                val msg = if (backendMessage.isNotBlank()) {
+                                    "Error backend ${response.code}: $backendMessage"
+                                } else {
+                                    "Error backend: ${response.code}"
+                                }
+                                addMessage(ChatMessage(msg, isUser = false))
+                            }
                         }
                         return@use
                     }

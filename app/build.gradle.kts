@@ -16,7 +16,6 @@ android {
         versionName = "1.0"
         buildConfigField("String", "CHAT_API_BASE_URL", "\"https://snazzy-lagged-repackage.ngrok-free.dev\"")
     }
-    
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
