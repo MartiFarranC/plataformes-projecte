@@ -8,7 +8,8 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+//const PORT = process.env.PORT || 3000;
+const PORT = 3002;
 const UNIVERSITY_AI_URL = process.env.UNIVERSITY_AI_URL;
 const UNIVERSITY_AI_TOKEN = process.env.UNIVERSITY_AI_TOKEN;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
