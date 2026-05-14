@@ -4,6 +4,9 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val chatApiBaseUrl = (findProperty("CHAT_API_BASE_URL") as? String)
+    ?: "https://snazzy-lagged-repackage.ngrok-free.dev"
+
 android {
     namespace = "com.example.testposturai"
     compileSdk = 35
@@ -14,7 +17,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "CHAT_API_BASE_URL", "\"https://snazzy-lagged-repackage.ngrok-free.dev\"")
+        buildConfigField("String", "CHAT_API_BASE_URL", "\"$chatApiBaseUrl\"")
     }
 
     compileOptions {

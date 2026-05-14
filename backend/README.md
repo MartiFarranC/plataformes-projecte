@@ -1,57 +1,41 @@
-﻿# Backend chat IA (UdL VPN + SSH tunnel + ngrok)
+# Backend PosturAI
 
-## 1) Start SSH tunnel to UdL
+Aquest fitxer resumeix només la part backend.
+La guia oficial completa end-to-end és a `../README.md`.
 
-Keep this terminal open:
+## Quick start
 
-```bash
-ssh -N -L 11434:localhost:11434 tuneluser@spoofing02-gcd.udl.cat
-```
-
-Note: We only forward `11434` to avoid collision with backend port.
-
-## 2) Configure backend
-
-```bash
+```powershell
 cd backend
 copy .env.example .env
 npm install
 npm start
 ```
 
-Default backend port is `3002` (configurable with `PORT` in `.env`).
+Port recomanat per la guia completa: `3002` (via `.env`).
 
-## 3) Test local backend
+## Túnel SSH (UdL)
+
+```bash
+ssh -N -L 3001:localhost:3000 -L 11435:localhost:11434 tuneluser@spoofing02-gcd.udl.cat
+```
+
+## Proves locals
+
+Health:
+
+```powershell
+Invoke-RestMethod -Method GET -Uri "http://localhost:3002/health"
+```
+
+Chat:
 
 ```powershell
 $body = @{ question = "Hola" } | ConvertTo-Json
 Invoke-RestMethod -Method POST -Uri "http://localhost:3002/chat" -ContentType "application/json" -Body $body
 ```
 
-Health check:
+## Nota important Android
 
-```powershell
-Invoke-RestMethod -Method GET -Uri "http://localhost:3002/health"
-```
-
-## 4) Expose backend with ngrok
-
-```bash
-ngrok http 3002
-```
-
-## 5) Android app
-
-Set `apiBaseUrl` in `ChatActivity.kt` with the ngrok HTTPS URL.
-
-## Important notes
-
-- If `/chat` returns `fetch failed`, the SSH tunnel is down or VPN is not connected.
-- RAG is auto-loaded at startup from `backend/knowledge/` (you can still call `/rag/load` to reload manually).
-- If model responses are slow, increase `AI_TIMEOUT_MS` in `.env` (default `120000`).
-- If model name is wrong, change `OLLAMA_MODEL` in `.env`.
-- You can list models directly on Ollama API:
-
-```powershell
-Invoke-RestMethod -Method GET -Uri "http://127.0.0.1:11434/api/tags"
-```
+L'app Android no llegeix la URL des de `ChatActivity.kt`.
+La llegeix des de `BuildConfig.CHAT_API_BASE_URL` definit a `app/build.gradle.kts`.

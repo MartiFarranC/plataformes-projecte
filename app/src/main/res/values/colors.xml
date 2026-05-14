@@ -4,6 +4,7 @@
     <color name="brand_primary_dark">#1747BF</color>
     <color name="bg_soft">#F4F6FA</color>
     <color name="surface">#FFFFFF</color>
+    <color name="border">#D6DEEA</color>
     <color name="text_primary">#1C2434</color>
     <color name="text_secondary">#5B667A</color>
 </resources>

@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.testposturai.ui.UiKit
 
 class ChatAdapter(private val messages: List<ChatMessage>) :
     RecyclerView.Adapter<ChatAdapter.ChatViewHolder>() {
@@ -16,7 +17,7 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val container = LinearLayout(parent.context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(10, 8, 10, 8)
+            setPadding(UiKit.dp(context, 8), UiKit.dp(context, 6), UiKit.dp(context, 8), UiKit.dp(context, 6))
             layoutParams = RecyclerView.LayoutParams(
                 RecyclerView.LayoutParams.MATCH_PARENT,
                 RecyclerView.LayoutParams.WRAP_CONTENT
@@ -24,8 +25,9 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
         }
 
         val textView = TextView(parent.context).apply {
-            textSize = 15f
-            setPadding(20, 14, 20, 14)
+            textSize = 16f
+            setPadding(UiKit.dp(context, 16), UiKit.dp(context, 12), UiKit.dp(context, 16), UiKit.dp(context, 12))
+            maxWidth = (parent.resources.displayMetrics.widthPixels * 0.78f).toInt()
         }
 
         container.addView(textView)
@@ -42,18 +44,19 @@ class ChatAdapter(private val messages: List<ChatMessage>) :
         if (message.isUser) {
             holder.container.gravity = Gravity.END
             holder.textView.background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = 28f
-                setColor(Color.parseColor("#1F5EFF"))
+                cornerRadius = 36f
+                setColor(UiKit.colorPrimary)
             }
             holder.textView.setTextColor(Color.WHITE)
             params.gravity = Gravity.END
         } else {
             holder.container.gravity = Gravity.START
             holder.textView.background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = 28f
-                setColor(Color.parseColor("#EEF2F8"))
+                cornerRadius = 36f
+                setColor(UiKit.colorSurfaceSoft)
+                setStroke(1, UiKit.colorBorder)
             }
-            holder.textView.setTextColor(Color.parseColor("#1C2434"))
+            holder.textView.setTextColor(UiKit.colorPrimaryText)
             params.gravity = Gravity.START
         }
 

@@ -1,6 +1,7 @@
 package com.example.testposturai.ui
 
 import android.os.Bundle
+import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -26,11 +27,15 @@ class EditUserActivity : AppCompatActivity() {
         val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         UiKit.styleCard(card)
 
-        val title = TextView(this).apply { text = "Editar perfil" }
+        val title = TextView(this).apply {
+            text = "Editar perfil"
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
         UiKit.styleTitle(title)
 
         val subtitle = TextView(this).apply {
             text = "Actualitza el teu correu electronic"
+            gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, UiKit.dp(this@EditUserActivity, 8), 0, UiKit.dp(this@EditUserActivity, 14))
         }
         UiKit.styleSubtitle(subtitle)
@@ -53,7 +58,7 @@ class EditUserActivity : AppCompatActivity() {
             text = "Tornar"
             setOnClickListener { finish() }
         }
-        UiKit.styleSecondaryButton(btnBack)
+        UiKit.styleGhostButton(btnBack)
 
         card.addView(title)
         card.addView(subtitle)
@@ -64,6 +69,7 @@ class EditUserActivity : AppCompatActivity() {
         card.addView(btnBack)
 
         layout.addView(card)
+        (card.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 14)
         setContentView(layout)
     }
 

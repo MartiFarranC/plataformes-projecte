@@ -31,13 +31,13 @@ class AuthActivity : AppCompatActivity() {
         UiKit.styleCard(card)
 
         val title = TextView(this).apply {
-            text = "BENVINGUT"
+            text = "PosturAI"
             gravity = Gravity.CENTER
         }
-        UiKit.styleTitle(title)
+        UiKit.styleHeroTitle(title)
 
         val subtitle = TextView(this).apply {
-            text = "Inicia sessio per continuar"
+            text = "Control postural i assistent IA en una sola app"
             gravity = Gravity.CENTER
             setPadding(0, UiKit.dp(this@AuthActivity, 8), 0, UiKit.dp(this@AuthActivity, 20))
         }
@@ -53,7 +53,7 @@ class AuthActivity : AppCompatActivity() {
         UiKit.styleInput(inputPass)
 
         val btnLogin = Button(this).apply {
-            text = "Iniciar sessio"
+            text = "Entrar"
             setOnClickListener {
                 val email = inputEmail.text.toString().trim()
                 val pass = inputPass.text.toString().trim()
@@ -73,7 +73,7 @@ class AuthActivity : AppCompatActivity() {
         UiKit.stylePrimaryButton(btnLogin)
 
         val btnRegister = Button(this).apply {
-            text = "Crear compte nou"
+            text = "Crear compte"
             setOnClickListener {
                 val email = inputEmail.text.toString().trim()
                 val pass = inputPass.text.toString().trim()
@@ -91,8 +91,9 @@ class AuthActivity : AppCompatActivity() {
             }
         }
         UiKit.styleSecondaryButton(btnRegister)
+        btnRegister.text = "Crear compte"
 
-        val space = UiKit.dp(this, 12)
+        val space = UiKit.dp(this, 14)
         card.addView(title)
         card.addView(subtitle)
         card.addView(inputEmail)
@@ -110,6 +111,7 @@ class AuthActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         )
+        (card.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 18)
 
         setContentView(layout)
     }

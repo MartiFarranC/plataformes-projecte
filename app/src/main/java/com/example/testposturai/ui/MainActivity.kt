@@ -1,6 +1,8 @@
 package com.example.testposturai.ui
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorManager
@@ -10,6 +12,8 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
@@ -31,8 +35,24 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var txtResultat: TextView
     private lateinit var txtAngle: TextView
+    private lateinit var txtCameraStatus: TextView
     private lateinit var viewFinder: PreviewView
     private var cameraProvider: ProcessCameraProvider? = null
+
+    private val cameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                txtCameraStatus.text = "Camera activa"
+                txtCameraStatus.setTextColor(UiKit.colorSuccess)
+                startCamera()
+            } else {
+                txtCameraStatus.text = "Permis de camera denegat"
+                txtCameraStatus.setTextColor(UiKit.colorDanger)
+                txtResultat.text = "No es pot iniciar l'analisi sense camera"
+                txtResultat.setTextColor(UiKit.colorDanger)
+                Toast.makeText(this, "Cal concedir permis de camera", Toast.LENGTH_LONG).show()
+            }
+        }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,7 +66,7 @@ class MainActivity : AppCompatActivity() {
         angleProvider = AngleProvider { graus -> actualitzarEstatPerAngle(graus) }
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
-        startCamera()
+        ensureCameraPermissionAndStart()
     }
 
     private fun configurarUI() {
@@ -55,8 +75,8 @@ class MainActivity : AppCompatActivity() {
 
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
         }
+        UiKit.styleTopBar(topBar)
 
         val btnBack = Button(this).apply {
             text = "Tornar"
@@ -77,24 +97,32 @@ class MainActivity : AppCompatActivity() {
         val statsCard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         UiKit.styleCard(statsCard)
 
+        txtCameraStatus = TextView(this).apply {
+            text = "Comprovant camera..."
+        }
+        UiKit.styleStatus(txtCameraStatus)
+
         txtAngle = TextView(this).apply {
             text = "Angle: --"
-            textSize = 17f
-            setTextColor(UiKit.colorPrimaryText)
         }
+        UiKit.styleBody(txtAngle)
+        txtAngle.textSize = 17f
 
         txtResultat = TextView(this).apply {
             text = "Analitzant postura..."
-            textSize = 18f
             setPadding(0, UiKit.dp(this@MainActivity, 10), 0, 0)
-            setTextColor(UiKit.colorSecondaryText)
         }
+        UiKit.styleBody(txtResultat)
+        txtResultat.textSize = 18f
+        txtResultat.setTextColor(UiKit.colorSecondaryText)
 
+        statsCard.addView(txtCameraStatus)
         statsCard.addView(txtAngle)
+        (txtAngle.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 8)
         statsCard.addView(txtResultat)
 
         viewFinder = PreviewView(this).apply {
-            background = UiKit.roundedDrawable(Color.WHITE, UiKit.colorBorder, 1, 16f)
+            background = UiKit.roundedDrawable(Color.WHITE, UiKit.colorBorder, 1, 20f)
             elevation = UiKit.dp(this@MainActivity, 2).toFloat()
         }
 
@@ -105,6 +133,23 @@ class MainActivity : AppCompatActivity() {
         (viewFinder.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 14)
 
         setContentView(layout)
+    }
+
+    private fun ensureCameraPermissionAndStart() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            txtCameraStatus.text = "Camera activa"
+            txtCameraStatus.setTextColor(UiKit.colorSuccess)
+            startCamera()
+        } else {
+            txtCameraStatus.text = "Esperant permis de camera"
+            txtCameraStatus.setTextColor(UiKit.colorWarning)
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     private fun actualitzarEstatPerAngle(graus: Int) {
@@ -136,25 +181,35 @@ class MainActivity : AppCompatActivity() {
                 .build()
 
             imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this)) { imageProxy ->
-                val bitmap = imageProxy.toBitmap()
-                val (probCorrecte, probIncorrecte) = classifier.classify(bitmap)
+                try {
+                    val bitmap = imageProxy.toBitmap()
+                    val (probCorrecte, probIncorrecte) = classifier.classify(bitmap)
 
-                runOnUiThread {
-                    if (probIncorrecte > probCorrecte) {
-                        txtResultat.text = "Postura incorrecta (${probIncorrecte})"
-                        txtResultat.setTextColor(UiKit.colorDanger)
-                    } else {
-                        txtResultat.text = "Postura correcta (${probCorrecte})"
-                        txtResultat.setTextColor(UiKit.colorSuccess)
+                    runOnUiThread {
+                        if (probIncorrecte > probCorrecte) {
+                            txtResultat.text = "Postura incorrecta (${probIncorrecte})"
+                            txtResultat.setTextColor(UiKit.colorDanger)
+                        } else {
+                            txtResultat.text = "Postura correcta (${probCorrecte})"
+                            txtResultat.setTextColor(UiKit.colorSuccess)
+                        }
                     }
+                } catch (_: Exception) {
+                    runOnUiThread {
+                        txtResultat.text = "Error processant la imatge"
+                        txtResultat.setTextColor(UiKit.colorDanger)
+                    }
+                } finally {
+                    imageProxy.close()
                 }
-                imageProxy.close()
             }
 
             try {
                 provider.unbindAll()
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis)
             } catch (_: Exception) {
+                txtCameraStatus.text = "No s'ha pogut iniciar la camera"
+                txtCameraStatus.setTextColor(UiKit.colorDanger)
             }
         }, ContextCompat.getMainExecutor(this))
     }

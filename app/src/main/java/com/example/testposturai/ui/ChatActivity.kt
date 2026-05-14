@@ -8,6 +8,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.testposturai.BuildConfig
@@ -26,14 +29,21 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var adapter: ChatAdapter
     private lateinit var recyclerView: RecyclerView
     private lateinit var input: EditText
+    private lateinit var btnSend: Button
+    private lateinit var txtStatus: TextView
+    private var baseRootBottomPadding: Int = 0
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .callTimeout(130, TimeUnit.SECONDS)
         .build()
+
     @Volatile
     private var isClosed = false
+
+    @Volatile
+    private var isSending = false
 
     private val apiBaseUrl = BuildConfig.CHAT_API_BASE_URL
 
@@ -45,8 +55,8 @@ class ChatActivity : AppCompatActivity() {
 
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
         }
+        UiKit.styleTopBar(topBar)
 
         val btnBack = Button(this).apply {
             text = "Tornar"
@@ -64,6 +74,11 @@ class ChatActivity : AppCompatActivity() {
         topBar.addView(btnBack, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.35f))
         topBar.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.65f))
 
+        txtStatus = TextView(this).apply {
+            text = "Backend: $apiBaseUrl"
+        }
+        UiKit.styleStatus(txtStatus)
+
         recyclerView = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@ChatActivity)
             background = UiKit.roundedDrawable(UiKit.colorSurface, UiKit.colorBorder, 1, 16f)
@@ -75,9 +90,10 @@ class ChatActivity : AppCompatActivity() {
         input = EditText(this).apply { hint = "Escriu una pregunta..." }
         UiKit.styleInput(input)
 
-        val btnSend = Button(this).apply {
+        btnSend = Button(this).apply {
             text = "Enviar"
             setOnClickListener {
+                if (isSending) return@setOnClickListener
                 val question = input.text.toString().trim()
                 if (question.isNotEmpty()) {
                     sendQuestion(question)
@@ -95,15 +111,30 @@ class ChatActivity : AppCompatActivity() {
         }
 
         root.addView(topBar)
+        root.addView(txtStatus)
+        (txtStatus.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 10)
         root.addView(recyclerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         (recyclerView.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 14)
         root.addView(inputRow)
         (inputRow.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 12)
 
+        baseRootBottomPadding = root.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            val extraBottom = maxOf(imeBottom, navBottom)
+            view.updatePadding(bottom = baseRootBottomPadding + extraBottom)
+            insets
+        }
+
         setContentView(root)
     }
 
     private fun sendQuestion(question: String) {
+        isSending = true
+        btnSend.isEnabled = false
+        btnSend.alpha = 0.7f
+        updateStatus("Enviant pregunta...")
         addMessage(ChatMessage(question, isUser = true))
 
         val payload = JSONObject().apply {
@@ -123,9 +154,10 @@ class ChatActivity : AppCompatActivity() {
                     if (backendSignature != "true") {
                         runOnUiThread {
                             if (!isClosed) {
+                                updateStatus("Backend incorrecte")
                                 addMessage(
                                     ChatMessage(
-                                        "Error de configuració: el xat està connectat a un backend incorrecte. Revisa la URL d'ngrok.",
+                                        "Error de configuracio: el xat esta connectat a un backend incorrecte. Revisa la URL d'ngrok.",
                                         isUser = false
                                     )
                                 )
@@ -142,6 +174,7 @@ class ChatActivity : AppCompatActivity() {
                         }
                         runOnUiThread {
                             if (!isClosed) {
+                                updateStatus("Error backend ${response.code}")
                                 val msg = if (backendMessage.isNotBlank()) {
                                     "Error backend ${response.code}: $backendMessage"
                                 } else {
@@ -158,18 +191,34 @@ class ChatActivity : AppCompatActivity() {
                     val answer = json.optString("answer", "Sense resposta")
 
                     runOnUiThread {
-                        if (!isClosed) addMessage(ChatMessage(answer, isUser = false))
+                        if (!isClosed) {
+                            updateStatus("Resposta rebuda")
+                            addMessage(ChatMessage(answer, isUser = false))
+                        }
                     }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
                     if (!isClosed) {
+                        updateStatus("Error de connexio")
                         Toast.makeText(applicationContext, "Error de connexio: ${e.message}", Toast.LENGTH_LONG).show()
                         addMessage(ChatMessage("No he pogut connectar amb la IA.", isUser = false))
                     }
                 }
+            } finally {
+                runOnUiThread {
+                    if (!isClosed) {
+                        isSending = false
+                        btnSend.isEnabled = true
+                        btnSend.alpha = 1f
+                    }
+                }
             }
         }.start()
+    }
+
+    private fun updateStatus(status: String) {
+        txtStatus.text = status
     }
 
     private fun addMessage(message: ChatMessage) {

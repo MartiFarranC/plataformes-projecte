@@ -18,6 +18,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 class StartActivity : AppCompatActivity() {
     private lateinit var layout: LinearLayout
     private lateinit var txtNom: TextView
+    private lateinit var txtSubtitle: TextView
     private lateinit var btnStart: Button
     private lateinit var btnChatIa: Button
     private lateinit var btnEditarUsuari: Button
@@ -39,6 +40,11 @@ class StartActivity : AppCompatActivity() {
             setPadding(0, UiKit.dp(this@StartActivity, 8), 0, UiKit.dp(this@StartActivity, 20))
             setTextColor(UiKit.colorSecondaryText)
         }
+        txtSubtitle = TextView(this).apply {
+            text = "Selecciona una funcionalitat per continuar"
+            gravity = Gravity.CENTER
+        }
+        UiKit.styleSubtitle(txtSubtitle)
 
         btnStart = Button(this).apply {
             text = "Comencar analisi postural"
@@ -66,7 +72,7 @@ class StartActivity : AppCompatActivity() {
                 finish()
             }
         }
-        UiKit.styleSecondaryButton(btnLogout)
+        UiKit.styleGhostButton(btnLogout)
 
         setContentView(layout)
     }
@@ -163,13 +169,16 @@ class StartActivity : AppCompatActivity() {
             text = "Panell principal"
             gravity = Gravity.CENTER
         }
-        UiKit.styleTitle(title)
+        UiKit.styleHeroTitle(title)
 
         txtNom.text = "$email, benvingut"
         txtNom.gravity = Gravity.CENTER
+        txtNom.textSize = 17f
 
         card.addView(title)
         addSafely(card, txtNom)
+        addSafely(card, txtSubtitle)
+        (txtSubtitle.layoutParams as LinearLayout.LayoutParams).bottomMargin = UiKit.dp(this, 10)
         addSafely(card, btnStart)
         (btnStart.layoutParams as LinearLayout.LayoutParams).topMargin = UiKit.dp(this, 8)
         addSafely(card, btnChatIa)

@@ -15,8 +15,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-//const PORT = process.env.PORT || 3000;
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 3002);
 const UNIVERSITY_AI_URL = process.env.UNIVERSITY_AI_URL;
 const UNIVERSITY_AI_TOKEN = process.env.UNIVERSITY_AI_TOKEN;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';

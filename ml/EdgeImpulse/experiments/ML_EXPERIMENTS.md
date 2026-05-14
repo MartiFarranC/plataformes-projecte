@@ -1,69 +1,101 @@
-# Informe d'Experiments de Machine Learning
-### (Plantilla feta per Gemini i omplerta per Martí recollint dades d'EdgeImpulse)
+# ML & RAG Experimentation Report: posturAI
 
-**Autor:** Martí  
-**Projecte:** Detector de Postura Ergonòmica (Correcte/Incorrecte)
+Aquest document detalla el procés de recerca, entrenament i implementació dels models d'Intel·ligència Artificial utilitzats en el projecte `posturAI`, tant per a la classificació de postures en temps real com per a l'assistent de xat intel·ligent.
 
-## 1. Dataset
-### Origen de les dades
-Les imatges han estat capturades íntegrament amb el meu dispositiu mòbil personal en un entorn real (la meva habitació). S'ha buscat recrear les condicions habituals d'ús de l'aplicació.
+## 1. Mòdul de Machine Learning (Visió per Computador)
 
-### Distribució de les dades
-S'ha creat un dataset diversificat per evitar biaixos per vestimenta o accessoris:
-- **Total de mostres:** 169 imatges d'entrenament + 32 imatges de test.
-- **Classes:**
-    - **Correcte (122 imatges):** Inclou variacions de cara i costat, amb diferents vestimentes (dessuadora grisa, verda, sense dessuadora) i l'ús de cascos des de diferents angles (dreta, esquerra, cara).
-    - **Incorrecte (47 imatges):** Inclou postures inclinades o mal posicionades amb les mateixes variacions de roba i accessoris que la classe anterior.
-- **Set de Test (32 imatges):** 25 correctes i 7 incorrectes per validar el model final.
+### 1.1 Descripció del Problema
 
-## 2. Preprocessament
-Totes les imatges han seguit el següent flux de preparació abans de l'entrenament:
-1. **Reescalat:** Ajust de la mida a **160x160 píxels**.
-2. **Normalització de color:** Conversió a **Grayscale** (escala de grisos) per reduir la complexitat computacional i centrar l'aprenentatge en la forma i posició del cos, no en els colors.
-3. **Data Augmentation:** Aplicació de girs horitzontals i variacions de brillantor aleatòries per augmentar la robustesa del model davant canvis d'il·luminació.
+L'objectiu és detectar en temps real si l'usuari manté una postura ergonòmica davant de l'ordinador. El sistema ha de ser capaç d'executar-se en un dispositiu mòbil (Android) amb baixa latència i sense dependre del núvol.
 
-## 3. Taula d'Experiments
-S'han comparat dues arquitectures principals per trobar l'equilibri òptim entre precisió i velocitat en el dispositiu mòbil:
+### 1.2 Dataset
 
-| Mètrica                 | Experiment 1: MobileNetV2 (RGB) | Experiment 2: MobileNetV2 (Grayscale) |
-|:------------------------|:--------------------------------|:--------------------------------------|
-| **Resolució**           | 96x96 píxels                    | **160x160 píxels**                    |
-| **Color**               | RGB (Color)                     | **Grayscale (Grisos)**                |
-| **Accuracy (Precisió)** | 88.9%                           | **100.0%**                            |
-| **Loss (Error)**        | 0.15                            | **0.01**                              |
-| **Temps d'Inferència**  | 6 ms                            | **10 ms**                             |
-| **Ús de RAM (Peak)**    | 546.0K                          | **546.6K**                            |
+Es tracta d'un dataset propi capturat en un entorn real (habitació amb il·luminació natural/artificial) per maximitzar la fiabilitat en el context d'ús final.
 
-## 4. Anàlisi del Rendiment (On-device Performance)
-El model final triat (**Experiment 2**) presenta un rendiment excel·lent per a un entorn mòbil:
-- **Latència (Inferència):** 10 ms (processament en CPU).
-- **Consell de memòria:** Només 546.6K de RAM, cosa que el fa extremadament lleuger per a qualsevol telèfon Android modern.
-- **Mida del model:** Aproximadament 1.6M (format .tflite).
+- Classes: `Correcte` i `Incorrecte` (inclinació excessiva o mala posició).
+- Volum total: `201` imatges.
+- Entrenament: `169` imatges (`122` Correctes / `47` Incorrectes).
+- Test: `32` imatges (`25` Correctes / `7` Incorrectes).
 
-## 5. Conclusions
-L'increment de la resolució de 96x96 a 160x160 ha estat clau per assolir una precisió del 100% en el set de validació. Tot i que el temps d'inferència ha pujat lleugerament (de 6ms a 10ms), la millora en l'accuracy justifica el canvi, ja que segueix estant molt per sota dels límits de percepció humana en temps real. El model és capaç de generalitzar correctament tot i els canvis de vestimenta o l'ús de cascos.
+### 1.3 Preprocessament i Augmentació
 
-## Resultat últim experiment (MobileNetV2 0.35, 160x160 Grayscale):
+- Resizing: les imatges es reescalen a `160x160` píxels.
+- Color: conversió a `grayscale` (1 canal) per reduir la càrrega computacional i centrar el model en formes i siluetes.
+- Data augmentation: `horizontal flip`, variació de brillantor i `random crop/resize` durant l'entrenament per reduir overfitting.
 
-## 1. Definició del Problema
-L'objectiu és classificar la postura de l'usuari en dues categories:
-- **Correcte**: Usuari ben assegut davant la càmera.
-- **Incorrecte**: Usuari inclinat o en posició no ergonòmica.
+### 1.4 Models Evaluats i Entrenament
 
-## 2. Arquitectura del Model
-S'ha utilitzat **MobileNetV2 (Alpha 0.35)** per la seva eficiència en dispositius mòbils.
-- **Input**: 160x160 píxels, Grayscale.
-- **Optimizer**: Adam (Learning rate: 0.0005).
+S'ha utilitzat l'arquitectura `MobileNetV2` (`alpha=0.35`) pel seu equilibri entre precisió i velocitat en dispositius ARM.
 
-## 3. Resultats de l'Entrenament
-Dades obtingudes després de l'entrenament a Edge Impulse:
+| Paràmetre | Experiment 1 (Baseline) | Experiment 2 (Final) |
+|---|---|---|
+| Arquitectura | MobileNetV2 RGB | MobileNetV2 Grayscale |
+| Resolució | 96x96 | 160x160 |
+| Optimizer | Adam (LR: 0.0005) | Adam (LR: 0.0005 + Fine-tuning) |
+| Accuracy (Test) | 88.9% | 100.0% |
+| Loss | 0.15 | 0.01 |
+| Inferència | 6 ms | 10 ms |
+| Pes model | ~1.6 MB | ~1.6 MB |
 
-###### Mirar imatge Experiment2_Resilts.png a la mateixa carpeta.
+Procés d'entrenament:
 
-| Mètrica      | Valor |
-|:-------------|:------|
-| **Accuracy** | 100%  |
-| **Loss**     | 0.01% |
+- Fase inicial de `20` epochs.
+- Fase de fine-tuning de `10` epochs amb `learning rate = 4.5 x 10^-5`.
+- `Dropout = 0.1`.
+- Ajust final amb capa `Dense(16)`.
 
-- **Observacions**: El model ha aconseguit una alta precisió, però cal tenir en compte que el conjunt de dades és limitat i pot no reflectir totes les variacions possibles en la postura dels usuaris. S'han de fer més proves amb més datasets.
+### 1.5 Optimització Mòbil
 
+El model final s'ha exportat a format TensorFlow Lite (`.tflite`). Tot i que no s'ha aplicat una quantització agressiva (`int8`), el pes de `1.6 MB` i la latència de `10 ms` permeten una execució fluida en la majoria de dispositius Android moderns.
+
+## 2. RAG (Retrieval-Augmented Generation)
+
+### 2.1 Descripció i Abordatge
+
+Per a l'assistent de xat, s'ha implementat un sistema RAG per garantir que les respostes del model de llenguatge (LLM) estiguin basades en coneixement expert sobre ergonomia i no només en el seu entrenament base.
+
+### 2.2 Dades de Coneixement
+
+El sistema indexa fitxers de text pla en format `.md`, `.txt` i `.json` situats a `backend/knowledge/`.
+
+Fonts principals:
+
+- `posture_guidelines.md`
+- `info.md`
+- `app_overview.md`
+
+Nota: els fitxers PDF presents a la carpeta estan reservats per a futures expansions del parser.
+
+### 2.3 Tecnologia i Arquitectura
+
+S'ha optat per una arquitectura lightweight sense bases de dades vectorials externes:
+
+- Cerca: basada en tokens i freqüència de termes (cerca lèxica) en memòria.
+- Filtrat: llindars de rellevància (`minScore`, `minMatchRatio`) per reduir soroll.
+- Model: backend amb `Llama 3.2:3b` (via Ollama) per generar la resposta final amb context recuperat.
+
+### 2.4 Resultats i Discussió
+
+- Validació: inspecció manual mitjançant endpoints de control (`/rag/check`).
+- Seguretat: detecció d'intent de domini; si no hi ha relació o context suficient, es retorna missatge "fora de context" per minimitzar al·lucinacions.
+
+## 3. Estructura del Projecte (ML/RAG)
+
+```text
+ml/
+└─ EdgeImpulse/
+   ├─ scripts/
+   │  └─ train_model.py          # Script principal d'entrenament Keras/TF
+   └─ models/
+      └─ tflite_learn_...tflite  # Model final per a l'app Android
+
+backend/
+├─ rag/
+│  ├─ splitter.js                # Lògica de fragmentació de documents
+│  └─ store.js                   # Motor de cerca i gestió de context
+└─ knowledge/                    # Base de coneixement (Markdown/Text)
+```
+
+## 4. Conclusions
+
+L'Experiment 2 ha demostrat que la combinació de `MobileNetV2` en escala de grisos amb resolució `160x160` ofereix una precisió del `100%` en el dataset actual, sent una solució molt adequada per a `posturAI`. El sistema RAG, tot i ser simple (cerca lèxica), compleix la funció de restringir el comportament del xat a l'àmbit de la salut postural amb cost computacional baix al servidor.

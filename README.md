@@ -1,225 +1,143 @@
-# PostureGuard - Monitor de Postura Ergonòmica - Readme maquillat amb Copilot (Purament estètic)
+# PosturAI
 
-## Descripció del Projecte
+Guia oficial (single source of truth) per executar el sistema complet end-to-end:
+- App Android amb TensorFlow Lite (classificació de postura on-device)
+- Backend Node.js amb RAG + connexió al model IA via VPN/SSH tunnel
+- Exposició del backend amb ngrok per al xat des del mòbil
 
-PostureGuard és una aplicació Android d'avantguarda dissenyada per millorar la salut física de l'usuari mitjançant la monitorització constant de la postura. Utilitzant tècniques de Machine Learning (Computer Vision) i la fusió de dades de sensors inercials, l'aplicació detecta si l'usuari manté una posició ergonòmica mentre utilitza el dispositiu.
+## 1. Estructura del repositori
 
-En cas de detectar una postura incorrecta o una inclinació excessiva del coll (com l'efecte "text-neck"), el sistema activa una alerta hàptica (vibració) cada 5 segons per conscienciar l'usuari i fomentar la correcció immediata.
-
-## Característiques Principals
-
-- ** Detecció Intel·ligent**: Classificació de postures mitjançant Machine Learning
-- ** Sensors Avançats**: Fusió de dades de càmera i sensors inercials
-- ** Feedback Instantani**: Alertes hàptiques per correcció immediata
-- ** Eficiència Energètica**: Optimitzat per a ús continu en dispositius mòbils
-- ** Precisió Alta**: Model entrenat amb 100% d'accuracy en validació
-
-## Arquitectura General
-
-L'arquitectura del sistema es basa en un model **Modular i Basat en Esdeveniments**, seguint les recomanacions de les guies de "Plataformas en Red". S'ha separat la lògica de negoci, el processament de dades i la interfície per garantir l'eficiència energètica i la mantenibilitat.
-
-### Capes del Sistema
-
-**Capa de Percepció**: Captura dades en temps real de la càmera (CameraX) i del sensor de vector de rotació.
-
-**Capa de Processament**: El motor TensorFlow Lite processa els frames per classificar la postura, mentre que la lògica de sensors calcula l'angle d'inclinació absolut.
-
-**Capa d'Acció**: Gestiona el feedback de l'usuari mitjançant canvis visuals a la UI i el control del motor de vibració del hardware.
-
-##  Mòduls Principals
-
-El projecte s'ha dividit en mòduls especialitzats per complir amb els principis de "Separation of Concerns":
-
-- **ui/MainActivity**: Actua com el controlador central (orquestrador). Gestiona el cicle de vida de l'activitat i sincronitza la informació visual.
-
-- **ml/PoseClassifier**: Encapsula el model de Machine Learning. Realitza el preprocessament de la imatge (resize a 160x160, Grayscale) i executa la inferència amb l'intèrpret de TFLite.
-
-- **sensors/AngleProvider**: Gestiona el Rotation Vector Sensor. Implementa la matriu de rotació per obtenir un angle de 360° estable i sense soroll, evitant el Gimbal Lock.
-
-- **sensors/VibrationManager**: Controla el sistema d'alertes hàptiques. Utilitza un Handler per programar vibracions periòdiques (cada 5s) sense bloquejar el fil d'execució principal (UI thread).
-
-## Tecnologies Utilitzades
-
-- **Android Studio Ladybug**: Entorn de desenvolupament
-- **Kotlin**: Llenguatge de programació principal
-- **TensorFlow Lite 2.16.1**: Motor de Machine Learning
-- **CameraX**: API moderna per a càmera Android
-- **Firebase**: Autenticació i base de dades (Auth, Firestore)
-- **Edge Impulse**: Plataforma per entrenament de models ML
-- **MobileNetV2**: Arquitectura del model neuronal
-
-## Estructura del Projecte
-
-```
-TestPosturAI/
-├── app/                          # Aplicació principal Android
-│   ├── src/main/
-│   │   ├── assets/               # Model TFLite
-│   │   ├── java/com/example/testposturai/
-│   │   │   ├── auth/             # Gestió d'autenticació
-│   │   │   ├── ml/               # Classificador de postures
-│   │   │   ├── sensors/          # Sensors i vibració
-│   │   │   └── ui/               # Interfície d'usuari
-│   │   └── AndroidManifest.xml
-│   └── build.gradle.kts          # Configuració Gradle
-├── ml/                           # Documentació ML
-│   └── EdgeImpulse/
-│       ├── dataset/              # Conjunt de dades
-│       ├── experiments/          # Experiments i resultats
-│       └── models/               # Models entrenats
-└── gradle/                       # Configuració Gradle
+```text
+posturAI/
+|- app/              # App Android
+|- backend/          # Backend Node.js (chat + RAG)
+|- ml/               # Materials de ML (models, experiments, scripts)
+|- README.md         # Aquesta guia (font única)
 ```
 
-## Instruccions d'Execució
+## 2. Requisits previs
 
-### Requisits previs
+- Android Studio (Ladybug o superior)
+- JDK compatible amb el projecte Android
+- Node.js 18+ i npm
+- Compte/configuració Firebase per a autenticació (fitxer `app/google-services.json`)
+- VPN UdL (si cal accedir al model IA remot)
+- `ssh` i `ngrok` instal·lats
+- Dispositiu Android físic (recomanat) o emulador
 
-- Dispositiu físic Android amb API 26 (Android 8.0) o superior
-- Càmera frontal funcional
-- Android Studio Ladybug o superior
-- Connexió a internet per a dependències
+## 3. Configuració Android (ML local)
 
-### Passos d'instal·lació
+El model TFLite ja està inclòs a:
+- `app/src/main/assets/tflite_learn_901615_40.tflite`
 
-1. **Clonar el repositori:**
-   ```bash
-   git clone https://github.com/el-teu-usuari/testposturai.git
-   cd testposturai
-   ```
+La inferència local de postura es fa amb `PoseClassifier` (TensorFlow Lite) i es mostra a la UI de `MainActivity`.
 
-2. **Importar el projecte:**
-   - Obre Android Studio
-   - Selecciona "Open" i navega fins a la carpeta `TestPosturAI/`
-   - Espera que es sincronitzin les dependències Gradle
+## 4. Configuració backend (RAG + IA)
 
-3. **Configurar el model ML:**
-   - Assegura't que el fitxer `tflite_learn_901615_40.tflite` es troba a `app/src/main/assets/`
-   - El model ja està inclòs al repositori
+Des de l'arrel del projecte:
 
-4. **Compilar i executar:**
-   - Connecta el dispositiu Android per USB
-   - Prem el botó "Run" a Android Studio
-   - Accepta els permisos de càmera quan se sol·licitin
+```powershell
+cd backend
+copy .env.example .env
+npm install
+```
 
-## Documentació de Machine Learning
+Valors rellevants de `backend/.env`:
+- `PORT=3002` (recomanat per mantenir coherència amb aquesta guia)
+- `UNIVERSITY_AI_URL=http://127.0.0.1:11435/api/generate`
+- `OLLAMA_MODEL=llama3.2:3b`
 
-### Dataset
-Les imatges han estat capturades amb dispositiu mòbil en entorn real:
-- **Total de mostres:** 169 imatges d'entrenament + 32 imatges de test
-- **Classes:**
-  - **Correcte (122 imatges):** Variacions de cara i costat, diferents vestimentes i accessoris
-  - **Incorrecte (47 imatges):** Postures inclinades amb mateixes variacions
+Nota: si no defineixes `PORT`, el codi actual del backend fa fallback a `3002`.
 
-### Preprocessament
-1. **Reescalat:** Ajust a 160x160 píxels
-2. **Normalització:** Conversió a Grayscale per reduir complexitat
-3. **Data Augmentation:** Girs horitzontals i variacions de brillantor
+## 5. Obrir túnel SSH (IA remota UdL)
 
-### Arquitectura del Model
-- **Framework:** MobileNetV2 (Alpha 0.35)
-- **Input:** 160x160 píxels, Grayscale
-- **Optimizer:** Adam (Learning rate: 0.0005)
+Amb VPN activa, obre una terminal separada i deixa-la oberta:
 
-### Resultats
-| Mètrica | Valor |
-|:--------|:------|
-| **Accuracy** | 100% |
-| **Loss** | 0.01% |
-| **Temps d'Inferència** | 10 ms |
-| **Ús de RAM** | 546.6K |
+```bash
+ssh -N -L 3001:localhost:3000 -L 11435:localhost:11434 tuneluser@spoofing02-gcd.udl.cat
+```
 
-### Rendiment On-device
-- **Latència:** 10 ms (processament en CPU)
-- **Mida del model:** ~1.6MB (format .tflite)
-- **Compatibilitat:** Qualsevol telèfon Android modern
+## 6. Engegar backend
 
-## Experiments ML
+En una altra terminal:
 
-S'han comparat dues arquitectures per trobar l'equilibri òptim:
+```powershell
+cd backend
+npm start
+```
 
-| Mètrica | MobileNetV2 (RGB) | MobileNetV2 (Grayscale) |
-|:--------|:------------------|:-----------------------|
-| Resolució | 96x96 píxels | **160x160 píxels** |
-| Color | RGB (Color) | **Grayscale** |
-| Accuracy | 88.9% | **100.0%** |
-| Loss | 0.15 | **0.01** |
-| Temps Inferència | 6 ms | **10 ms** |
-| Ús RAM | 546.0K | **546.6K** |
+Comprovació ràpida:
 
-## Conclusions
+```powershell
+Invoke-RestMethod -Method GET -Uri "http://localhost:3002/health"
+```
 
-L'increment de resolució ha estat clau per assolir 100% d'accuracy. Tot i l'augment lleuger en temps d'inferència, la millora en precisió justifica el canvi. El model generalitza correctament malgrat canvis de vestimenta o accessoris.
+Test del xat:
 
-## Llicència
+```powershell
+$body = @{ question = "Consells de postura?" } | ConvertTo-Json
+Invoke-RestMethod -Method POST -Uri "http://localhost:3002/chat" -ContentType "application/json" -Body $body
+```
 
-Aquest projecte està sota llicència MIT. Consulta el fitxer LICENSE per a més detalls.
+## 7. Exposar backend amb ngrok
 
-## Autor
+```bash
+ngrok http 3002
+```
 
-**Martí** - Desenvolupador principal
+Copia la URL HTTPS pública (exemple: `https://xxxx.ngrok-free.app`).
 
-## Agraïments
+## 8. Connectar l'app Android al backend
 
-- Edge Impulse per la plataforma d'entrenament ML
-- Google per les APIs de CameraX i TensorFlow Lite
-- Comunitat Android per la documentació i suport
-- Gemini i Copilot per l'ajuda de cerca d'informació i millora estètica 
+L'app llegeix la URL base des de `BuildConfig.CHAT_API_BASE_URL`, definit a:
+- `app/build.gradle.kts`
 
-## Sistema d'Autenticació
+Abans de compilar, actualitza aquest valor amb la URL d'ngrok:
 
-PostureGuard inclou un sistema complet d'autenticació d'usuaris basat en Firebase Authentication i Firestore per gestionar perfils d'usuari.
+```kotlin
+buildConfigField("String", "CHAT_API_BASE_URL", "\"https://xxxx.ngrok-free.app\"")
+```
 
-### Funcionalitats d'Autenticació
+Després sincronitza Gradle i compila.
 
-- ** Registre d'usuaris**: Creació de comptes amb validació d'email
-- ** Inici de sessió**: Autenticació segura amb email i contrasenya
-- ** Verificació d'email**: Sistema de verificació obligatòria per seguretat
-- ** Gestió de perfil**: Edició d'informació personal (email)
-- ** Tancament de sessió**: Logout segur amb neteja d'estat
-- ** Verificació automàtica**: Comprovació en temps real de l'estat de verificació
+## 9. Executar l'app Android
 
-### Flux d'Autenticació
+1. Obre el projecte a Android Studio.
+2. Espera la sync de Gradle.
+3. Connecta dispositiu/emulador.
+4. Executa `app` (`Run`).
+5. Dona permisos de càmera.
 
-1. **Registre**:
-   - L'usuari introdueix email i contrasenya
-   - Es crea el compte a Firebase Auth
-   - S'envia automàticament un email de verificació
-   - Es guarda l'estat "verificacioPendent" a Firestore
-   - L'usuari és desconnectat fins a verificar l'email
+Flux funcional esperat:
+- Login/Register (Firebase) -> pantalla principal
+- `Comencar analisi postural` -> inferència TFLite local + resultat visual
+- `Xat IA` -> petició HTTP a `/chat` del backend via ngrok
 
-2. **Verificació d'Email**:
-   - L'usuari rep un email amb enllaç de verificació
-   - En fer clic, es marca com verificat a Firebase
-   - L'app detecta automàticament el canvi d'estat
-   - S'actualitza Firestore i es permet l'accés
+## 10. Verificació end-to-end (checklist ràpid)
 
-3. **Login**:
-   - Autenticació amb credencials
-   - Comprovació d'estat de verificació
-   - Accés a la pantalla principal si tot és correcte
+1. `health` backend respon a `localhost:3002`
+2. `/chat` respon en local
+3. ngrok exposa `3002` i l'endpoint remot respon
+4. `CHAT_API_BASE_URL` apunta a la URL ngrok actual
+5. Des de l'app, el xat rep resposta (sense error de configuració)
+6. A `MainActivity`, es veu `Postura correcta/incorrecta` en temps real
 
-4. **Gestió de Perfil**:
-   - Possibilitat de canviar l'adreça d'email
-   - Requeriment de verificació del nou email
-   - Actualització segura amb Firebase Auth
+## 11. Troubleshooting
 
-5. **Logout**:
-   - Tancament de sessió net
-   - Retorn a pantalla d'autenticació
-   - Neteja d'estat local
+- Error `No he pogut connectar amb la IA`:
+  - Revisa `CHAT_API_BASE_URL`
+  - Revisa que ngrok estigui actiu
+  - Revisa que backend estigui en marxa
+- Error backend `503`:
+  - Revisa VPN + túnel SSH
+  - Revisa `UNIVERSITY_AI_URL`
+- El xat diu "backend incorrecte":
+  - URL apuntant a un servei que no és aquest backend
+- El model de postura no detecta:
+  - Verifica permisos de càmera
+  - Verifica que el model `.tflite` existeix a `app/src/main/assets/`
 
-### Seguretat Implementada
+## 12. Referències internes
 
-- **Verificació d'email obligatòria** abans d'accedir a l'app
-- **Protecció contra comptes no verificats**
-- **Gestió d'estats** amb Firestore per persistència
-- **Validació de sessions** en cada accés
-- **Reenviament d'emails** de verificació si cal
-
-### Base de Dades
-
-S'utilitza **Firebase Firestore** per emmagatzemar:
-- Estat de verificació d'email (`verificacioPendent`)
-- Possibles extensions futures de perfil d'usuari
-
-Aquest sistema garanteix que només usuaris verificats puguin accedir a les funcionalitats de monitoratge postural, mantenint la privacitat i seguretat de les dades.
+- Backend detallat: `backend/README.md`
+- Materials de ML: `ml/EdgeImpulse/`
