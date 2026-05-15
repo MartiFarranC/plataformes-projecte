@@ -25,11 +25,50 @@ class ChatViewModel {
     return error.message.startsWith('AI connection failed:') || error.message.startsWith('AI timeout after');
   }
 
+  extractQuestion(body) {
+    const directQuestion = typeof body?.question === 'string' ? body.question : '';
+    const nestedQuestion = typeof body?.message?.text === 'string' ? body.message.text : '';
+    return (directQuestion || nestedQuestion || '').trim();
+  }
+
+  validateEnvelope(body) {
+    if (!body || typeof body !== 'object') {
+      return 'JSON body is required';
+    }
+
+    if (body.requestId && typeof body.requestId !== 'string') {
+      return 'requestId must be a string';
+    }
+
+    if (body.timestamp && typeof body.timestamp !== 'string' && typeof body.timestamp !== 'number') {
+      return 'timestamp must be an ISO string or epoch number';
+    }
+
+    if (body.client && typeof body.client !== 'object') {
+      return 'client must be an object';
+    }
+
+    if (body.metadata && typeof body.metadata !== 'object') {
+      return 'metadata must be an object';
+    }
+
+    if (body.message && typeof body.message !== 'object') {
+      return 'message must be an object';
+    }
+
+    return null;
+  }
+
   async postChat(body) {
     try {
-      const question = (body?.question || '').trim();
+      const envelopeError = this.validateEnvelope(body);
+      if (envelopeError) {
+        return { status: 400, body: { error: envelopeError } };
+      }
+
+      const question = this.extractQuestion(body);
       if (!question) {
-        return { status: 400, body: { error: 'Question is required' } };
+        return { status: 400, body: { error: 'Question is required (question or message.text)' } };
       }
 
       const messageId = await this.chatRepository.insertPending(question);
@@ -56,7 +95,15 @@ class ChatViewModel {
         throw aiError;
       }
 
-      return { status: 200, body: { id: messageId, answer } };
+      return {
+        status: 200,
+        body: {
+          id: messageId,
+          answer,
+          requestId: body?.requestId || null,
+          timestamp: new Date().toISOString()
+        }
+      };
     } catch (error) {
       if (this.isAiConnectivityError(error)) {
         return { status: 503, body: { error: this.aiConnectivityErrorMessage } };

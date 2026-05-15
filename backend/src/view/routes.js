@@ -7,6 +7,10 @@ function mountRoutes(app, { chatViewModel, ragViewModel, healthViewModel }) {
     const result = await chatViewModel.postChat(req.body);
     return res.status(result.status).json(result.body);
   });
+  router.put('/chat', async (req, res) => {
+    const result = await chatViewModel.postChat(req.body);
+    return res.status(result.status).json(result.body);
+  });
 
   router.get('/chat/history', async (_req, res) => {
     const result = await chatViewModel.getHistory();

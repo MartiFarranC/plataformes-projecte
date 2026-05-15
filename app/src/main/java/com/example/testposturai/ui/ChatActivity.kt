@@ -21,6 +21,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class ChatActivity : AppCompatActivity() {
@@ -138,6 +139,33 @@ class ChatActivity : AppCompatActivity() {
         addMessage(ChatMessage(question, isUser = true))
 
         val payload = JSONObject().apply {
+            put("requestId", UUID.randomUUID().toString())
+            put("timestamp", System.currentTimeMillis())
+            put(
+                "client",
+                JSONObject().apply {
+                    put("platform", "android")
+                    put("appId", packageName)
+                    put("versionName", BuildConfig.VERSION_NAME)
+                    put("versionCode", BuildConfig.VERSION_CODE)
+                }
+            )
+            put(
+                "metadata",
+                JSONObject().apply {
+                    put("screen", "chat")
+                    put("locale", resources.configuration.locales.get(0).toLanguageTag())
+                    put("transport", "http")
+                }
+            )
+            put(
+                "message",
+                JSONObject().apply {
+                    put("type", "question")
+                    put("text", question)
+                }
+            )
+            // Backward compatibility
             put("question", question)
         }
 
