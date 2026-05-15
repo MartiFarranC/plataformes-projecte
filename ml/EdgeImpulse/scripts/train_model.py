@@ -1,128 +1,172 @@
-
-import math, requests
+import argparse
+import json
 from pathlib import Path
+from typing import Dict, Tuple
+
 import tensorflow as tf
-from tensorflow.keras import Model
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import (
-    Dense, InputLayer, Dropout, Conv1D, Flatten, Reshape, MaxPooling1D, BatchNormalization,
-    Conv2D, GlobalMaxPooling2D, Lambda, GlobalAveragePooling2D)
-from tensorflow.keras.optimizers.legacy import Adam, Adadelta
-from tensorflow.keras.losses import categorical_crossentropy
 
 
-sys.path.append('./resources/libraries')
-import ei_tensorflow.training
-
-WEIGHTS_PATH = './transfer-learning-weights/edgeimpulse/MobileNetV2.0_35.96x96.grayscale.bsize_64.lr_0_005.epoch_260.val_loss_3.10.val_accuracy_0.35.hdf5'
-
-# Download the model weights
-root_url = 'https://cdn.edgeimpulse.com/'
-p = Path(WEIGHTS_PATH)
-if not p.exists():
-    print(f"Pretrained weights {WEIGHTS_PATH} unavailable; downloading...")
-    if not p.parent.exists():
-        p.parent.mkdir(parents=True)
-    weights_data = requests.get(root_url + WEIGHTS_PATH[2:]).content
-    with open(WEIGHTS_PATH, 'wb') as f:
-        f.write(weights_data)
-    print(f"Pretrained weights {WEIGHTS_PATH} unavailable; downloading OK")
-    print("")
-
-INPUT_SHAPE = (160, 160, 1)
-
-
-base_model = tf.keras.applications.MobileNetV2(
-    input_shape = INPUT_SHAPE, alpha=0.35,
-    weights = WEIGHTS_PATH
-)
-
-base_model.trainable = False
-
-model = Sequential()
-model.add(InputLayer(input_shape=INPUT_SHAPE, name='x_input'))
-# Don't include the base model's top layers
-last_layer_index = -3
-model.add(Model(inputs=base_model.inputs, outputs=base_model.layers[last_layer_index].output))
-model.add(Reshape((-1, model.layers[-1].output.shape[3])))
-model.add(Dense(16, activation='relu'))
-model.add(Dropout(0.1))
-model.add(Flatten())
-model.add(Dense(classes, activation='softmax'))
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train posture classifier and export TFLite model")
+    parser.add_argument("--data-dir", required=True, help="Dataset root with train/ and val/ subfolders")
+    parser.add_argument("--img-size", type=int, default=160)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--fine-tune-epochs", type=int, default=10)
+    parser.add_argument("--learning-rate", type=float, default=5e-4)
+    parser.add_argument("--fine-tune-lr", type=float, default=4.5e-5)
+    parser.add_argument("--dropout", type=float, default=0.1)
+    parser.add_argument("--dense-units", type=int, default=16)
+    parser.add_argument("--grayscale", action="store_true", help="Convert RGB input to grayscale in pipeline")
+    parser.add_argument("--alpha", type=float, default=0.35, help="MobileNetV2 alpha")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--model-out", default="ml/EdgeImpulse/models/posture_model.keras")
+    parser.add_argument("--tflite-out", default="ml/EdgeImpulse/models/tflite_learn_901615_40.tflite")
+    parser.add_argument("--metrics-out", default="ml/EdgeImpulse/experiments/last_train_metrics.json")
+    return parser.parse_args()
 
 
-# Implements the data augmentation policy
-def augment_image(image, label):
-    # Flips the image randomly
-    image = tf.image.random_flip_left_right(image)
+def build_datasets(args: argparse.Namespace):
+    data_dir = Path(args.data_dir)
+    train_dir = data_dir / "train"
+    val_dir = data_dir / "val"
 
-    # Increase the image size, then randomly crop it down to
-    # the original dimensions
-    resize_factor = random.uniform(1, 1.2)
-    new_height = math.floor(resize_factor * INPUT_SHAPE[0])
-    new_width = math.floor(resize_factor * INPUT_SHAPE[1])
-    image = tf.image.resize_with_crop_or_pad(image, new_height, new_width)
-    image = tf.image.random_crop(image, size=INPUT_SHAPE)
+    if not train_dir.exists() or not val_dir.exists():
+        raise FileNotFoundError("Expected dataset folders: <data-dir>/train and <data-dir>/val")
 
-    # Vary the brightness of the image
-    image = tf.image.random_brightness(image, max_delta=0.2)
+    input_shape = (args.img_size, args.img_size)
 
-    return image, label
+    train_ds = tf.keras.utils.image_dataset_from_directory(
+        train_dir,
+        label_mode="categorical",
+        image_size=input_shape,
+        batch_size=args.batch_size,
+        seed=args.seed,
+    )
 
-train_dataset = train_dataset.map(augment_image, num_parallel_calls=tf.data.AUTOTUNE)
+    val_ds = tf.keras.utils.image_dataset_from_directory(
+        val_dir,
+        label_mode="categorical",
+        image_size=input_shape,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        shuffle=False,
+    )
 
-BATCH_SIZE = args.batch_size or 32
-EPOCHS = args.epochs or 20
-LEARNING_RATE = args.learning_rate or 0.0005
-# If True, non-deterministic functions (e.g. shuffling batches) are not used.
-# This is False by default.
-ENSURE_DETERMINISM = args.ensure_determinism
-if not ENSURE_DETERMINISM:
-    train_dataset = train_dataset.shuffle(buffer_size=BATCH_SIZE*4)
-prefetch_policy = 1 if ENSURE_DETERMINISM else tf.data.AUTOTUNE
-train_dataset = train_dataset.batch(BATCH_SIZE, drop_remainder=False).prefetch(prefetch_policy)
-validation_dataset = validation_dataset.batch(BATCH_SIZE, drop_remainder=False).prefetch(prefetch_policy)
-callbacks.append(BatchLoggerCallback(BATCH_SIZE, train_sample_count, epochs=EPOCHS, ensure_determinism=ENSURE_DETERMINISM))
+    class_names = train_ds.class_names
+    num_classes = len(class_names)
+    if num_classes < 2:
+        raise ValueError("At least two classes are required")
+
+    aug = tf.keras.Sequential([
+        tf.keras.layers.RandomFlip("horizontal"),
+        tf.keras.layers.RandomZoom(0.12),
+        tf.keras.layers.RandomBrightness(0.2),
+    ])
+
+    def preprocess(image, label):
+        x = tf.cast(image, tf.float32)
+        if args.grayscale:
+            x = tf.image.rgb_to_grayscale(x)
+            x = tf.image.grayscale_to_rgb(x)
+        x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
+        return x, label
+
+    autotune = tf.data.AUTOTUNE
+    train_ds = train_ds.map(lambda x, y: (aug(x, training=True), y), num_parallel_calls=autotune)
+    train_ds = train_ds.map(preprocess, num_parallel_calls=autotune).prefetch(autotune)
+    val_ds = val_ds.map(preprocess, num_parallel_calls=autotune).prefetch(autotune)
+
+    return train_ds, val_ds, class_names
 
 
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
-                loss='categorical_crossentropy',
-                metrics=['accuracy'])
-model.fit(train_dataset, validation_data=validation_dataset, epochs=EPOCHS, verbose=2, callbacks=callbacks)
+def build_model(args: argparse.Namespace, num_classes: int) -> tf.keras.Model:
+    input_tensor = tf.keras.Input(shape=(args.img_size, args.img_size, 3), name="image")
 
-print('')
-print('Initial training done.', flush=True)
+    base_model = tf.keras.applications.MobileNetV2(
+        input_shape=(args.img_size, args.img_size, 3),
+        include_top=False,
+        weights="imagenet",
+        alpha=args.alpha,
+    )
+    base_model.trainable = False
 
-# How many epochs we will fine tune the model
-FINE_TUNE_EPOCHS = 10
-# What percentage of the base model's layers we will fine tune
-FINE_TUNE_PERCENTAGE = 65
+    x = base_model(input_tensor, training=False)
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dense(args.dense_units, activation="relu")(x)
+    x = tf.keras.layers.Dropout(args.dropout)(x)
+    output = tf.keras.layers.Dense(num_classes, activation="softmax", name="probs")(x)
 
-print('Fine-tuning best model for {} epochs...'.format(FINE_TUNE_EPOCHS), flush=True)
+    model = tf.keras.Model(inputs=input_tensor, outputs=output)
+    return model
 
-# Load best model from initial training
-model = ei_tensorflow.training.load_best_model(BEST_MODEL_PATH)
 
-# Determine which layer to begin fine tuning at
-model_layer_count = len(model.layers)
-fine_tune_from = math.ceil(model_layer_count * ((100 - FINE_TUNE_PERCENTAGE) / 100))
+def compile_model(model: tf.keras.Model, lr: float):
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+        loss="categorical_crossentropy",
+        metrics=["accuracy"],
+    )
 
-# Allow the entire base model to be trained
-model.trainable = True
-# Freeze all the layers before the 'fine_tune_from' layer
-for layer in model.layers[:fine_tune_from]:
-    layer.trainable = False
 
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.000045),
-                loss='categorical_crossentropy',
-                metrics=['accuracy'])
+def evaluate_to_dict(results: Dict[str, float], phase: str) -> Dict[str, float]:
+    return {
+        f"{phase}_loss": float(results[0]),
+        f"{phase}_accuracy": float(results[1]),
+    }
 
-model.fit(train_dataset,
-                epochs=FINE_TUNE_EPOCHS,
-                verbose=2,
-                validation_data=validation_dataset,
-                callbacks=callbacks,
-                class_weight=None
-            )
 
- 
+def export_tflite(model: tf.keras.Model, tflite_path: Path):
+    tflite_path.parent.mkdir(parents=True, exist_ok=True)
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    tflite_model = converter.convert()
+    tflite_path.write_bytes(tflite_model)
+
+
+def main():
+    args = parse_args()
+    tf.keras.utils.set_random_seed(args.seed)
+
+    train_ds, val_ds, class_names = build_datasets(args)
+    model = build_model(args, num_classes=len(class_names))
+
+    compile_model(model, args.learning_rate)
+    model.fit(train_ds, validation_data=val_ds, epochs=args.epochs, verbose=2)
+
+    base_eval = model.evaluate(val_ds, verbose=0)
+
+    base_model = model.layers[1]
+    base_model.trainable = True
+    fine_tune_from = int(len(base_model.layers) * 0.35)
+    for layer in base_model.layers[:fine_tune_from]:
+        layer.trainable = False
+
+    compile_model(model, args.fine_tune_lr)
+    model.fit(train_ds, validation_data=val_ds, epochs=args.fine_tune_epochs, verbose=2)
+
+    final_eval = model.evaluate(val_ds, verbose=0)
+
+    model_out = Path(args.model_out)
+    model_out.parent.mkdir(parents=True, exist_ok=True)
+    model.save(model_out)
+
+    export_tflite(model, Path(args.tflite_out))
+
+    metrics = {
+        "class_names": class_names,
+        "config": vars(args),
+        **evaluate_to_dict(base_eval, "base"),
+        **evaluate_to_dict(final_eval, "final"),
+    }
+
+    metrics_out = Path(args.metrics_out)
+    metrics_out.parent.mkdir(parents=True, exist_ok=True)
+    metrics_out.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+
+    print(json.dumps(metrics, indent=2))
+    print(f"Model saved to: {model_out}")
+    print(f"TFLite exported to: {args.tflite_out}")
+
+
+if __name__ == "__main__":
+    main()

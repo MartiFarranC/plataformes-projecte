@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun actualitzarEstatPerAngle(graus: Int) {
         runOnUiThread {
-            txtAngle.text = "Angle real: ${graus}"
+            txtAngle.text = "Angle: ${graus}"
 
             if (graus < 60 || graus > 100) {
                 txtAngle.setTextColor(UiKit.colorDanger)
