@@ -4,7 +4,7 @@ const sqlite3 = require('sqlite3');
 const dotenv = require('dotenv');
 const path = require('path');
 const { splitText } = require('./rag/splitter');
-const { buildRagIndex, getRagContext, getRagIndexCount, isQueryRelevantToRag } = require('./rag/store');
+const { buildRagIndex, getRagContext, getRagIndexCount, isQueryRelevantToRag, getEmbeddingsCachePath } = require('./rag/store');
 
 dotenv.config();
 
@@ -22,6 +22,7 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 120000);
 const AI_MAX_RETRIES = Number(process.env.AI_MAX_RETRIES || 2);
 const OUT_OF_CONTEXT_MESSAGE = 'Perdona però no puc parlar de res que no sigui el meu context.';
+const APP_OVERVIEW_MESSAGE = 'Soc l’assistent de PosturAI. Puc ajudar-te amb postura, ergonomia, dolor cervical/lumbar, hàbits saludables a l’escriptori i exercicis relacionats.';
 
 let db;
 
@@ -99,6 +100,41 @@ async function askUniversityAI(question) {
   return data.answer || data.response || JSON.stringify(data);
 }
 
+function normalizeText(text) {
+  return (text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function getGeneralScopedReply(question) {
+  const q = normalizeText(question);
+  if (!q) {
+    return null;
+  }
+
+  const greetingPatterns = [/^hola\b/, /^bon dia\b/, /^bona tarda\b/, /^bona nit\b/, /^hey\b/, /^ei\b/];
+  if (greetingPatterns.some((pattern) => pattern.test(q))) {
+    return 'Hola! Soc l’assistent de PosturAI. Si vols, et puc ajudar amb postura, ergonomia o dolor d’esquena/cervicals.';
+  }
+
+  const appScopePatterns = [
+    /sobre que (pots|puc) parlar/,
+    /de que (pots|puc) parlar/,
+    /de que va aquesta app/,
+    /que fas/,
+    /com em pots ajudar/,
+    /quina ajuda em pots donar/,
+    /que es posturai/
+  ];
+  if (appScopePatterns.some((pattern) => pattern.test(q))) {
+    return APP_OVERVIEW_MESSAGE;
+  }
+
+  return null;
+}
+
 app.post('/chat', async (req, res) => {
   try {
     const question = (req.body?.question || '').trim();
@@ -114,9 +150,20 @@ app.post('/chat', async (req, res) => {
     );
 
     const messageId = insert.lastID;
+    const generalReply = getGeneralScopedReply(question);
+    if (generalReply) {
+      await db.run(
+        `UPDATE chat_messages SET answer = ?, status = 'answered', answered_at = ? WHERE id = ?`,
+        generalReply,
+        new Date().toISOString(),
+        messageId
+      );
+      return res.json({ id: messageId, answer: generalReply });
+    }
+
     const topK = 5;
-    const isRelevant = isQueryRelevantToRag(question, topK);
-    const context = getRagContext(question, topK);
+    const isRelevant = await isQueryRelevantToRag(question, topK);
+    const context = await getRagContext(question, topK);
 
     let answer;
     try {
@@ -200,8 +247,18 @@ app.post('/rag/query', async (req, res) => {
     }
 
     const topK = Number(req.body.topK || 5);
-    const isRelevant = isQueryRelevantToRag(question, topK);
-    const context = getRagContext(question, topK);
+    const generalReply = getGeneralScopedReply(question);
+    if (generalReply) {
+      return res.json({
+        question,
+        answer: generalReply,
+        context: '',
+        count: getRagIndexCount()
+      });
+    }
+
+    const isRelevant = await isQueryRelevantToRag(question, topK);
+    const context = await getRagContext(question, topK);
 
     if (!context || !isRelevant) {
       return res.json({
@@ -233,15 +290,15 @@ app.get('/rag/status', (_req, res) => {
   });
 });
 
-app.post('/rag/check', (req, res) => {
+app.post('/rag/check', async (req, res) => {
   const question = (req.body?.question || '').trim();
   if (!question) {
     return res.status(400).json({ error: 'Question is required' });
   }
 
   const topK = Number(req.body.topK || 5);
-  const isRelevant = isQueryRelevantToRag(question, topK);
-  const context = getRagContext(question, topK);
+  const isRelevant = await isQueryRelevantToRag(question, topK);
+  const context = await getRagContext(question, topK);
 
   return res.json({
     question,
@@ -259,7 +316,8 @@ app.get('/health', (_req, res) => {
     port: PORT,
     aiUrl: UNIVERSITY_AI_URL,
     model: OLLAMA_MODEL,
-    ragIndexCount: getRagIndexCount()
+    ragIndexCount: getRagIndexCount(),
+    embeddingsCachePath: getEmbeddingsCachePath()
   });
 });
 
