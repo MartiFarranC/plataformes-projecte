@@ -2,9 +2,11 @@ package com.example.testposturai.auth
 
 import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class AuthManager {
     private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
 
     fun registrar(email: String, pass: String, callback: (Boolean, String?) -> Unit) {
         auth.createUserWithEmailAndPassword(email, pass)
@@ -81,4 +83,25 @@ class AuthManager {
 
 
     fun getEmail(): String? = auth.currentUser?.email
+
+    fun eliminarCompte(callback: (Boolean, String?) -> Unit) {
+        val user = auth.currentUser
+        if (user == null) {
+            callback(false, "No hi ha cap usuari autenticat")
+            return
+        }
+
+        val uid = user.uid
+        db.collection("users").document(uid).delete()
+            .addOnCompleteListener {
+                user.delete().addOnCompleteListener { deleteTask ->
+                    if (deleteTask.isSuccessful) {
+                        auth.signOut()
+                        callback(true, null)
+                    } else {
+                        callback(false, deleteTask.exception?.message)
+                    }
+                }
+            }
+    }
 }

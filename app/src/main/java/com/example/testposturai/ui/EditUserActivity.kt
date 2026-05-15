@@ -1,6 +1,8 @@
 package com.example.testposturai.ui
 
+import android.content.Intent
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
@@ -16,6 +18,7 @@ class EditUserActivity : AppCompatActivity() {
 
     private lateinit var inputEmail: EditText
     private lateinit var btnGuardar: Button
+    private lateinit var btnEliminarCompte: Button
     private val authManager = AuthManager()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,6 +57,12 @@ class EditUserActivity : AppCompatActivity() {
         }
         UiKit.stylePrimaryButton(btnGuardar)
 
+        btnEliminarCompte = Button(this).apply {
+            text = "Eliminar compte"
+            setOnClickListener { confirmarEliminacioCompte() }
+        }
+        UiKit.styleDangerButton(btnEliminarCompte)
+
         val btnBack = Button(this).apply {
             text = "Tornar"
             setOnClickListener { finish() }
@@ -66,6 +75,8 @@ class EditUserActivity : AppCompatActivity() {
         (inputEmail.layoutParams as LinearLayout.LayoutParams).bottomMargin = UiKit.dp(this, 14)
         card.addView(btnGuardar)
         (btnGuardar.layoutParams as LinearLayout.LayoutParams).bottomMargin = UiKit.dp(this, 10)
+        card.addView(btnEliminarCompte)
+        (btnEliminarCompte.layoutParams as LinearLayout.LayoutParams).bottomMargin = UiKit.dp(this, 10)
         card.addView(btnBack)
 
         layout.addView(card)
@@ -91,5 +102,29 @@ class EditUserActivity : AppCompatActivity() {
                     }
                 }
         }
+    }
+
+    private fun confirmarEliminacioCompte() {
+        AlertDialog.Builder(this)
+            .setTitle("Eliminar compte")
+            .setMessage("Aquesta accio es permanent. Vols eliminar el teu compte de Firebase?")
+            .setPositiveButton("Si, eliminar") { _, _ ->
+                authManager.eliminarCompte { ok, error ->
+                    runOnUiThread {
+                        if (ok) {
+                            Toast.makeText(this, "Compte eliminat correctament", Toast.LENGTH_LONG).show()
+                            val intent = Intent(this, AuthActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            }
+                            startActivity(intent)
+                            finish()
+                        } else {
+                            Toast.makeText(this, "No s'ha pogut eliminar: $error", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 }

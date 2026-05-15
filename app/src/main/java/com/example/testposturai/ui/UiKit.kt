@@ -124,6 +124,15 @@ object UiKit {
         button.minHeight = dp(button.context, 52)
     }
 
+    fun styleDangerButton(button: Button) {
+        button.setBackgroundColor(Color.TRANSPARENT)
+        button.background = roundedDrawable(colorDanger, colorDanger, 0, 14f)
+        button.setTextColor(Color.WHITE)
+        button.textSize = 16f
+        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
+        button.minHeight = dp(button.context, 52)
+    }
+
     fun styleBody(textView: TextView) {
         textView.setTextColor(colorPrimaryText)
         textView.textSize = 16f
